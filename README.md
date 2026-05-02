@@ -9,11 +9,14 @@ lint → type-check → test → codepolicy
 ## Install
 
 ```bash
-# GitHub release branch
-bun add -D github:9wick/codepolicy#release
+# npm
+npm install -D codepolicy
 
-# or npm
-npm install -D github:9wick/codepolicy#release
+# bun
+bun add -D codepolicy
+
+# pnpm
+pnpm add -D codepolicy
 ```
 
 Requires Node.js >= 22.
