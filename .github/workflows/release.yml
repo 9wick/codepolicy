@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         env:
-          GITHUB_TOKEN: ${{ secrets.READ_PAT_ESLINT_RULES }}
+          BUN_GITHUB_TOKEN: ${{ secrets.READ_PAT_ESLINT_RULES }}
         run: bun install --frozen-lockfile
 
       - name: Format check
@@ -65,7 +65,7 @@ jobs:
 
       - name: Install dependencies
         env:
-          GITHUB_TOKEN: ${{ secrets.READ_PAT_ESLINT_RULES }}
+          BUN_GITHUB_TOKEN: ${{ secrets.READ_PAT_ESLINT_RULES }}
         run: bun install --frozen-lockfile
 
       - name: Build
