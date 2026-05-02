@@ -1,6 +1,6 @@
 "$schema": ./schemas/codepolicy-config.schema.json
 filter: all
-agent: github-copilot/gpt-4.1
+agent: claude-sonnet-4-5
 concurrency: 10
 rulePaths:
   - ./.codepolicy/prompt-general-reader.config.ts
