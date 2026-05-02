@@ -10,14 +10,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup SSH for private dependencies
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_PRIVATE_KEY_FOR_9WICK_ESLINT_RULES }}
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.5
 
-      - name: Install dependencies
-        env:
-          GITHUB_TOKEN: ${{ secrets.READ_PAT_ESLINT_RULES }}
-        run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile
 
       - name: Format check
         run: bun run format:check
