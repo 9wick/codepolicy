@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Logs
+*.log
+
+# Environment files
+.env*
+
+# Lint cache
+.eslintcache
+
+# Test coverage
+coverage/
+
+# Prepush hash
+.prepush-hash
+
+# Plans
+plans/
+
+# codepolicy local cache
+.codepolicy/
+
+# Internal docs (not for public release)
+docs/plan/
+docs/superpowers/
+docs/issues/
+
+# Generated repo dump
+repomix-output.xml
+
+# Personal IDE settings
+.claude/
+.zed/

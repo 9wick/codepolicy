@@ -1,0 +1,38 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index ddc77efcf63bd6c8aa46b8043a7564d61cfd9efb..af5c162db9b6c5d8ce623807e3622eb7661f0614 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -177,10 +177,11 @@ async function runCommand(cmd, opts) {
+ 	try {
+ 		const subCommands = await resolveValue(cmd.subCommands);
+ 		if (subCommands && Object.keys(subCommands).length > 0) {
+-			const subCommandArgIndex = opts.rawArgs.findIndex((arg) => !arg.startsWith("-"));
+-			const subCommandName = opts.rawArgs[subCommandArgIndex];
++			const positionals = parsedArgs._ || [];
++			const subCommandName = positionals[0];
+ 			if (subCommandName) {
+ 				if (!subCommands[subCommandName]) throw new CLIError(`Unknown command ${cyan(subCommandName)}`, "E_UNKNOWN_COMMAND");
++				const subCommandArgIndex = opts.rawArgs.indexOf(subCommandName);
+ 				const subCommand = await resolveValue(subCommands[subCommandName]);
+ 				if (subCommand) await runCommand(subCommand, { rawArgs: opts.rawArgs.slice(subCommandArgIndex + 1) });
+ 			} else if (!cmd.run) throw new CLIError(`No command specified.`, "E_NO_COMMAND");
+@@ -194,10 +195,15 @@ async function runCommand(cmd, opts) {
+ async function resolveSubCommand(cmd, rawArgs, parent) {
+ 	const subCommands = await resolveValue(cmd.subCommands);
+ 	if (subCommands && Object.keys(subCommands).length > 0) {
+-		const subCommandArgIndex = rawArgs.findIndex((arg) => !arg.startsWith("-"));
+-		const subCommandName = rawArgs[subCommandArgIndex];
+-		const subCommand = await resolveValue(subCommands[subCommandName]);
+-		if (subCommand) return resolveSubCommand(subCommand, rawArgs.slice(subCommandArgIndex + 1), cmd);
++		const cmdArgs = await resolveValue(cmd.args || {});
++		const parsed = parseArgs(rawArgs, cmdArgs);
++		const positionals = parsed._ || [];
++		const subCommandName = positionals[0];
++		const subCommand = subCommandName ? await resolveValue(subCommands[subCommandName]) : void 0;
++		if (subCommand) {
++			const subCommandArgIndex = rawArgs.indexOf(subCommandName);
++			return resolveSubCommand(subCommand, rawArgs.slice(subCommandArgIndex + 1), cmd);
++		}
+ 	}
+ 	return [cmd, parent];
+ }

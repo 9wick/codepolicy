@@ -1,0 +1,8 @@
+{
+  "name": "codepolicy-sample-basic",
+  "private": true,
+  "scripts": {
+    "lint": "node ../../dist/entry.mjs --config=.codepolicy.yml",
+    "validate": "node ../../dist/entry.mjs --config=.codepolicy.yml validate"
+  }
+}

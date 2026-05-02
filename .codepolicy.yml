@@ -1,0 +1,9 @@
+agent: github-copilot/gpt-4.1
+filter: diff
+
+rules:
+  function-contract: error
+  ssot-violation: warn
+
+ignore:
+  - dist/**

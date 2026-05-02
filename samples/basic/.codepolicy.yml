@@ -1,0 +1,5 @@
+filter: all
+
+rules:
+  function-contract: error
+  ssot-violation: warn
