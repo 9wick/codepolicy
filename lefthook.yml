@@ -1,0 +1,9 @@
+pre-commit:
+  commands:
+    prepush-check:
+      run: npx prepush-hash check
+
+prepare-commit-msg:
+  commands:
+    prepush-footer:
+      run: npx prepush-hash verify-footer {1} {2}

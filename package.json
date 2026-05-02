@@ -1,0 +1,78 @@
+{
+  "name": "codepolicy",
+  "version": "0.1.0",
+  "description": "LLM-powered semantic lint tool for CI pipelines",
+  "author": "9wick",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "codepolicy": "./dist/cli/entry.mjs"
+  },
+  "files": ["dist", "schemas"],
+  "scripts": {
+    "dev": "bun run src/cli/entry.ts",
+    "schema:generate": "bun run tools/generate-schemas.ts && biome format --write schemas/",
+    "build": "bun run schema:generate && tsdown",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "oxlint . && eslint --cache .",
+    "lint:fix": "oxlint --fix . && eslint --cache --fix .",
+    "typecheck": "tsc --noEmit",
+    "codepolicy": "env -u CLAUDECODE bun run src/cli/entry.ts --config=.codepolicy.self.yml",
+    "benchmark": "bash tools/benchmark.sh",
+    "prepush": "bun run format:check && bun run typecheck && bun run lint && bun run build && bun run test && npx prepush-hash save",
+    "prepublishOnly": "bun run build && bun run test"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.71",
+    "@anthropic-ai/claude-code": "^2.1.71",
+    "@needle-di/core": "^1.1.1",
+    "@openai/codex-sdk": "^0.112.0",
+    "@opencode-ai/sdk": "^1.2.24",
+    "@oxc-project/runtime": "^0.116.0",
+    "@sinclair/typebox": "^0.34.41",
+    "ajv": "^8.17.1",
+    "citty": "^0.2.1",
+    "js-yaml": "^4.1.1",
+    "neverthrow": "^8.2.0",
+    "p-limit": "^7.3.0",
+    "simple-git": "^3.27.0",
+    "tree-sitter": "^0.22.4",
+    "tree-sitter-typescript": "^0.23.2",
+    "ts-pattern": "^5.9.0"
+  },
+  "devDependencies": {
+    "@9wick/eslint-plugin-strict-type-rules": "git+ssh://git@github.com/9wick/eslint-strict-type-rules.git#daa01c0058d24d6a750278c0cd3398122ef9da80",
+    "@biomejs/biome": "^1.9.4",
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.7.1",
+    "@eslint/js": "^9.27.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.15.0",
+    "eslint": "^9.27.0",
+    "eslint-plugin-import-x": "^4.6.1",
+    "eslint-plugin-sonarjs": "^4.0.1",
+    "lefthook": "^2.1.3",
+    "oxlint": "^0.16.6",
+    "tsdown": "^0.11.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.32.1",
+    "vitest": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=22.x"
+  },
+  "patchedDependencies": {
+    "citty@0.2.1": "patches/citty@0.2.1.patch"
+  }
+}

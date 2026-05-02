@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codepolicy.dev/schemas/codepolicy-config.schema.json",
+  "additionalProperties": false,
+  "title": "Codepolicy Config",
+  "type": "object",
+  "required": ["agent", "rules"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "filter": {
+      "default": "diff",
+      "anyOf": [
+        {
+          "const": "diff",
+          "type": "string"
+        },
+        {
+          "const": "all",
+          "type": "string"
+        }
+      ]
+    },
+    "base": {
+      "description": "Git ref to diff against (e.g. \"origin/main\"). Only used when filter is \"diff\". Overridden by CLI --base.",
+      "type": "string"
+    },
+    "rulePaths": {
+      "minItems": 1,
+      "description": "Paths to project-specific rule modules.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "agent": {
+      "description": "Default LLM agent for all rules (e.g. \"github-copilot/gpt-4.1\"). Overridden by CLI --agent.",
+      "type": "string"
+    },
+    "concurrency": {
+      "minimum": 1,
+      "description": "Number of parallel LLM evaluations (default: 10). LLM calls are I/O-bound; values up to 30-50 are usually safe if the provider rate limit allows. Overridden by CLI --concurrency.",
+      "type": "integer"
+    },
+    "rules": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "const": "error",
+                  "type": "string"
+                },
+                {
+                  "const": "warn",
+                  "type": "string"
+                },
+                {
+                  "const": "off",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "type": "object",
+              "required": ["level"],
+              "properties": {
+                "level": {
+                  "anyOf": [
+                    {
+                      "const": "error",
+                      "type": "string"
+                    },
+                    {
+                      "const": "warn",
+                      "type": "string"
+                    },
+                    {
+                      "const": "off",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "threshold": {
+                  "type": "number"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ignore": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["files", "rules"],
+        "properties": {
+          "files": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ignores": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rules": {
+            "type": "object",
+            "patternProperties": {
+              "^(.*)$": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "const": "error",
+                        "type": "string"
+                      },
+                      {
+                        "const": "warn",
+                        "type": "string"
+                      },
+                      {
+                        "const": "off",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "required": ["level"],
+                    "properties": {
+                      "level": {
+                        "anyOf": [
+                          {
+                            "const": "error",
+                            "type": "string"
+                          },
+                          {
+                            "const": "warn",
+                            "type": "string"
+                          },
+                          {
+                            "const": "off",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "threshold": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+"$schema": ./schemas/codepolicy-config.schema.json
+filter: all
+agent: github-copilot/gpt-4.1
+concurrency: 10
+rulePaths:
+  - ./.codepolicy/prompt-general-reader.config.ts
+
+rules:
+  code-duplication: error
+  function-contract: error
+  strict-function-boundary: error
+  no-implicit-fallback: error
+  no-invalid-state-type: error
+  # prompt-general-reader: off
+  # ssot-placement: off
+  # ssot-violation:
+  #   level: off
+  #   dirs:
+  #     - src/
+  test-validity: off
+
+overrides:
+  - files: ["**/*.test.ts"]
+    rules:
+      code-duplication: off
+      function-contract: off
+      no-implicit-fallback: off
+      no-invalid-state-type: off
+      prompt-general-reader: off
+      ssot-placement: off
+      ssot-violation: off
+      strict-function-boundary: off
+      test-validity: error
+  - files: ["src/rules/**"]
+    rules:
+      code-duplication: off
+      function-contract: off
+      no-implicit-fallback: off
+      no-invalid-state-type: off
+      prompt-general-reader: off
+      ssot-placement: off
+      ssot-violation: off
+      strict-function-boundary: off
+      test-validity: off
+  - files: ["src/rules/**/rule.ts"]
+    rules:
+      prompt-general-reader: off
+
+ignore:
+  - tools/**
+  - dist/**
+  - samples/**
+  - .codepolicy/**
+  - src/cli/**
+  - src/infrastructure/**
+  - src/shared/**
+  - src/test-support/**
+  - src/application/config/**
+  - src/application/output/**
