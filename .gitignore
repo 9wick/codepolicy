@@ -30,6 +30,7 @@ plans/
 docs/plan/
 docs/superpowers/
 docs/issues/
+docs/adr/
 
 # Generated repo dump
 repomix-output.xml
