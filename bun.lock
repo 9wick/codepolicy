@@ -23,7 +23,7 @@
         "ts-pattern": "^5.9.0",
       },
       "devDependencies": {
-        "@9wick/eslint-plugin-strict-type-rules": "git+ssh://git@github.com/9wick/eslint-strict-type-rules.git#daa01c0058d24d6a750278c0cd3398122ef9da80",
+        "@9wick/eslint-plugin-strict-type-rules": "github:9wick/eslint-strict-type-rules#daa01c0058d24d6a750278c0cd3398122ef9da80",
         "@biomejs/biome": "^1.9.4",
         "@eslint-community/eslint-plugin-eslint-comments": "^4.7.1",
         "@eslint/js": "^9.27.0",
@@ -45,7 +45,7 @@
     "citty@0.2.1": "patches/citty@0.2.1.patch",
   },
   "packages": {
-    "@9wick/eslint-plugin-strict-type-rules": ["@9wick/eslint-plugin-strict-type-rules@git+ssh://git@github.com/9wick/eslint-strict-type-rules.git#daa01c0058d24d6a750278c0cd3398122ef9da80", { "peerDependencies": { "@eslint-community/eslint-plugin-eslint-comments": "^4.0.0", "eslint": "^9.0.0", "eslint-plugin-import-x": "^4.0.0", "eslint-plugin-react": "^7.37.0", "eslint-plugin-react-hooks": "^5.0.0", "eslint-plugin-react-refresh": "^0.4.0", "eslint-plugin-sonarjs": "^2.0.0 || ^3.0.0", "typescript-eslint": "^8.0.0" }, "optionalPeers": ["eslint-plugin-react", "eslint-plugin-react-hooks", "eslint-plugin-react-refresh"], "bin": { "prepush-hash": "./bin/prepush-hash.mjs" } }, "daa01c0058d24d6a750278c0cd3398122ef9da80"],
+    "@9wick/eslint-plugin-strict-type-rules": ["@9wick/eslint-plugin-strict-type-rules@github:9wick/eslint-strict-type-rules#daa01c0058d24d6a750278c0cd3398122ef9da80", { "peerDependencies": { "@eslint-community/eslint-plugin-eslint-comments": "^4.0.0", "eslint": "^9.0.0", "eslint-plugin-import-x": "^4.0.0", "eslint-plugin-react": "^7.37.0", "eslint-plugin-react-hooks": "^5.0.0", "eslint-plugin-react-refresh": "^0.4.0", "eslint-plugin-sonarjs": "^2.0.0 || ^3.0.0", "typescript-eslint": "^8.0.0" }, "optionalPeers": ["eslint-plugin-react", "eslint-plugin-react-hooks", "eslint-plugin-react-refresh"], "bin": { "prepush-hash": "./bin/prepush-hash.mjs" } }, "daa01c0058d24d6a750278c0cd3398122ef9da80"],
 
     "@anthropic-ai/claude-agent-sdk": ["@anthropic-ai/claude-agent-sdk@0.2.71", "", { "optionalDependencies": { "@img/sharp-darwin-arm64": "^0.34.2", "@img/sharp-darwin-x64": "^0.34.2", "@img/sharp-linux-arm": "^0.34.2", "@img/sharp-linux-arm64": "^0.34.2", "@img/sharp-linux-x64": "^0.34.2", "@img/sharp-linuxmusl-arm64": "^0.34.2", "@img/sharp-linuxmusl-x64": "^0.34.2", "@img/sharp-win32-arm64": "^0.34.2", "@img/sharp-win32-x64": "^0.34.2" }, "peerDependencies": { "zod": "^4.0.0" } }, "sha512-pIsQJnM7Y+cJHL7aFY6SCCW3FIni218gVEpPqG8XGowfYxboFNBbNssWiUNRwthT8bp9jypcX7q5kx0Xsw14xg=="],
 
