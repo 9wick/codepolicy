@@ -14,6 +14,18 @@ jobs:
         with:
           bun-version: 1.3.5
 
+      - name: Debug PAT access (temporary)
+        env:
+          GITHUB_TOKEN: ${{ secrets.READ_PAT_ESLINT_RULES }}
+        run: |
+          echo "Token length: ${#GITHUB_TOKEN}"
+          echo "Token prefix: ${GITHUB_TOKEN:0:8}..."
+          echo "--- API call ---"
+          curl -s -o /dev/null -w "HTTP: %{http_code}\n" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/9wick/eslint-strict-type-rules/tarball/daa01c0058d24d6a750278c0cd3398122ef9da80
+
       - name: Install dependencies
         env:
           GITHUB_TOKEN: ${{ secrets.READ_PAT_ESLINT_RULES }}
