@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit",
     "codepolicy": "env -u CLAUDECODE bun run src/cli/entry.ts --config=.codepolicy.self.yml",
     "benchmark": "bash tools/benchmark.sh",
-    "prepush": "bun run format:check && bun run typecheck && bun run lint && bun run build && bun run test && npx prepush-hash save",
+    "precommit": "bun run format:check && bun run typecheck && bun run lint && bun run build && bun run test && npx precommit-verify save",
     "prepublishOnly": "bun run build && bun run test"
   },
   "dependencies": {
@@ -53,7 +53,8 @@
     "ts-pattern": "^5.9.0"
   },
   "devDependencies": {
-    "@9wick/eslint-plugin-strict-type-rules": "git+ssh://git@github.com/9wick/eslint-strict-type-rules.git#daa01c0058d24d6a750278c0cd3398122ef9da80",
+    "@9wick/eslint-plugin-strict-type-rules": "1.0.2",
+    "precommit-verify": "0.1.7",
     "@biomejs/biome": "^1.9.4",
     "@eslint-community/eslint-plugin-eslint-comments": "^4.7.1",
     "@eslint/js": "^9.27.0",

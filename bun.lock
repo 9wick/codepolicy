@@ -23,7 +23,7 @@
         "ts-pattern": "^5.9.0",
       },
       "devDependencies": {
-        "@9wick/eslint-plugin-strict-type-rules": "git+ssh://git@github.com/9wick/eslint-strict-type-rules.git#daa01c0058d24d6a750278c0cd3398122ef9da80",
+        "@9wick/eslint-plugin-strict-type-rules": "1.0.2",
         "@biomejs/biome": "^1.9.4",
         "@eslint-community/eslint-plugin-eslint-comments": "^4.7.1",
         "@eslint/js": "^9.27.0",
@@ -34,6 +34,7 @@
         "eslint-plugin-sonarjs": "^4.0.1",
         "lefthook": "^2.1.3",
         "oxlint": "^0.16.6",
+        "precommit-verify": "0.1.7",
         "tsdown": "^0.11.0",
         "typescript": "^5.8.3",
         "typescript-eslint": "^8.32.1",
@@ -45,7 +46,7 @@
     "citty@0.2.1": "patches/citty@0.2.1.patch",
   },
   "packages": {
-    "@9wick/eslint-plugin-strict-type-rules": ["@9wick/eslint-plugin-strict-type-rules@git+ssh://git@github.com/9wick/eslint-strict-type-rules.git#daa01c0058d24d6a750278c0cd3398122ef9da80", { "peerDependencies": { "@eslint-community/eslint-plugin-eslint-comments": "^4.0.0", "eslint": "^9.0.0", "eslint-plugin-import-x": "^4.0.0", "eslint-plugin-react": "^7.37.0", "eslint-plugin-react-hooks": "^5.0.0", "eslint-plugin-react-refresh": "^0.4.0", "eslint-plugin-sonarjs": "^2.0.0 || ^3.0.0", "typescript-eslint": "^8.0.0" }, "optionalPeers": ["eslint-plugin-react", "eslint-plugin-react-hooks", "eslint-plugin-react-refresh"], "bin": { "prepush-hash": "./bin/prepush-hash.mjs" } }, "daa01c0058d24d6a750278c0cd3398122ef9da80"],
+    "@9wick/eslint-plugin-strict-type-rules": ["@9wick/eslint-plugin-strict-type-rules@1.0.2", "", { "peerDependencies": { "@eslint-community/eslint-plugin-eslint-comments": "^4.0.0", "eslint": "^9.0.0", "eslint-plugin-import-x": "^4.0.0", "eslint-plugin-react": "^7.37.0", "eslint-plugin-react-hooks": "^5.0.0", "eslint-plugin-react-refresh": "^0.4.0", "eslint-plugin-sonarjs": "^2.0.0 || ^3.0.0", "typescript-eslint": "^8.0.0" }, "optionalPeers": ["eslint-plugin-react", "eslint-plugin-react-hooks", "eslint-plugin-react-refresh"] }, "sha512-9uLHtjnQW/kXzeT4v5T2fxbRSRps7B1NPhKUkKFqgTyWEVkG2zwbZxqNQn7NGWs1EUQ7/+qaMsYH3+M0qpVpXg=="],
 
     "@anthropic-ai/claude-agent-sdk": ["@anthropic-ai/claude-agent-sdk@0.2.71", "", { "optionalDependencies": { "@img/sharp-darwin-arm64": "^0.34.2", "@img/sharp-darwin-x64": "^0.34.2", "@img/sharp-linux-arm": "^0.34.2", "@img/sharp-linux-arm64": "^0.34.2", "@img/sharp-linux-x64": "^0.34.2", "@img/sharp-linuxmusl-arm64": "^0.34.2", "@img/sharp-linuxmusl-x64": "^0.34.2", "@img/sharp-win32-arm64": "^0.34.2", "@img/sharp-win32-x64": "^0.34.2" }, "peerDependencies": { "zod": "^4.0.0" } }, "sha512-pIsQJnM7Y+cJHL7aFY6SCCW3FIni218gVEpPqG8XGowfYxboFNBbNssWiUNRwthT8bp9jypcX7q5kx0Xsw14xg=="],
 
@@ -646,6 +647,8 @@
     "picomatch": ["picomatch@4.0.3", "", {}, "sha512-5gTmgEY/sqK6gFXLIsQNH19lWb4ebPDLA4SdLP7dsWkIXHWlG66oPuVvXSGFPppYZz8ZDZq0dYYrbHfBCVUb1Q=="],
 
     "postcss": ["postcss@8.5.8", "", { "dependencies": { "nanoid": "^3.3.11", "picocolors": "^1.1.1", "source-map-js": "^1.2.1" } }, "sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg=="],
+
+    "precommit-verify": ["precommit-verify@0.1.7", "", { "os": [ "linux", "win32", "darwin", ], "cpu": [ "x64", "arm64", ], "bin": { "precommit-verify": "lib/index.js" } }, "sha512-iovZ9ugAiIWXlrZ4JX9XjArqKrht1bfCHC3xmqUkqkRItiTC+NruVmm2RSeokmBeCTPj3+WXAWkOIAXsp+MIMQ=="],
 
     "prelude-ls": ["prelude-ls@1.2.1", "", {}, "sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g=="],
 
