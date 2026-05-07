@@ -39,7 +39,7 @@
     "codepolicy": "env -u CLAUDECODE bun run src/cli/entry.ts --config=.codepolicy.self.yml",
     "benchmark": "bash tools/benchmark.sh",
     "precommit": "bun run format:check && bun run typecheck && bun run lint && bun run build && bun run test && npx precommit-verify save",
-    "prepublishOnly": "bun run build && bun run test"
+    "prepublishOnly": "bun run build && bun run test --exclude='src/rules/*/rule.test.ts'"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.71",
