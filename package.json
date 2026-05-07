@@ -4,6 +4,10 @@
   "description": "LLM-powered semantic lint tool for CI pipelines",
   "author": "9wick",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/9wick/codepolicy.git"
+  },
   "type": "module",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
