@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/9wick/codepolicy/compare/codepolicy-v0.2.1...codepolicy-v0.2.2) (2026-05-07)
+
+
+### Bug Fixes
+
+* **ci:** exclude LLM integration tests from prepublishOnly ([f08678e](https://github.com/9wick/codepolicy/commit/f08678e2614448b8cfd1bb37672e021d608259dd))
+* **ci:** exclude LLM integration tests from prepublishOnly ([3c611de](https://github.com/9wick/codepolicy/commit/3c611de9c83df57ebf7c576c2cb7c128833a6d8e))
+
 ## [0.2.1](https://github.com/9wick/codepolicy/compare/codepolicy-v0.2.0...codepolicy-v0.2.1) (2026-05-07)
 
 
