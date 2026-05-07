@@ -1,6 +1,6 @@
 {
   "name": "codepolicy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "LLM-powered semantic lint tool for CI pipelines",
   "author": "9wick",
   "license": "MIT",
@@ -21,7 +21,10 @@
   "bin": {
     "codepolicy": "./dist/cli/entry.mjs"
   },
-  "files": ["dist", "schemas"],
+  "files": [
+    "dist",
+    "schemas"
+  ],
   "scripts": {
     "dev": "bun run src/cli/entry.ts",
     "schema:generate": "bun run tools/generate-schemas.ts && biome format --write schemas/",
