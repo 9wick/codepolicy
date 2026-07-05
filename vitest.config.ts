@@ -3,9 +3,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   define: {
     // 環境によって利用可能なモデルが異なるため env で上書き可能にする
-    CODEPOLICY_TEST_AGENT: JSON.stringify(
-      process.env['CODEPOLICY_TEST_AGENT'] ?? 'github-copilot/gpt-4.1',
-    ),
+    CODEPOLICY_TEST_AGENT: JSON.stringify(process.env['CODEPOLICY_TEST_AGENT'] ?? 'gpt-5.4'),
   },
   test: {
     setupFiles: ['./vitest.setup.ts'],
