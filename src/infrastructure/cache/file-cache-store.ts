@@ -7,14 +7,16 @@ import { Result, ResultAsync, errAsync, okAsync } from 'neverthrow';
 
 import type { CodepolicyError } from '../../shared/errors';
 import { codepolicyError } from '../../shared/errors';
+import { verdictLabelSchema } from '../../shared/schema-definitions';
 import { validateBySchema } from '../llm/llm-provider';
 
 import type { CacheKey, CacheStore, CachedEntry, LookupOutcome } from './cache-store';
 
 const cachedEntrySchema = Type.Object(
   {
-    score: Type.Number(),
-    reason: Type.String(),
+    verdict: verdictLabelSchema,
+    reasoning: Type.String(),
+    citations: Type.Array(Type.String()),
     savedAt: Type.String(),
     codepolicyVersion: Type.String(),
   },
@@ -57,8 +59,9 @@ function classifyRaw(raw: string | null): LookupOutcome {
   const validated = validateBySchema(parsed.value, cachedEntrySchema);
   if (validated.isErr()) return { kind: 'corrupted', cause: validated.error };
   const entry: CachedEntry = {
-    score: validated.value.score,
-    reason: validated.value.reason,
+    verdict: validated.value.verdict,
+    reasoning: validated.value.reasoning,
+    citations: validated.value.citations,
     savedAt: validated.value.savedAt,
     codepolicyVersion: validated.value.codepolicyVersion,
   };

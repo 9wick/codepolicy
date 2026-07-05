@@ -44,9 +44,9 @@ function makeFunctionRule(id: string): ResolvedRule {
     id,
     scope: 'function',
     agent: 'test-agent',
-    threshold: 7,
+    borderline: 'warn',
     level: 'error',
-    create: () => okAsync(() => okAsync({ score: 100, reason: 'ok' })),
+    create: () => okAsync(() => okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] })),
   };
 }
 
@@ -55,9 +55,9 @@ function makeFileRule(id: string): ResolvedRule {
     id,
     scope: 'file',
     agent: 'test-agent',
-    threshold: 7,
+    borderline: 'warn',
     level: 'warn',
-    create: () => okAsync(() => okAsync({ score: 100, reason: 'ok' })),
+    create: () => okAsync(() => okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] })),
   };
 }
 
@@ -66,9 +66,9 @@ function makeTypeRule(id: string): ResolvedRule {
     id,
     scope: 'type',
     agent: 'test-agent',
-    threshold: 7,
+    borderline: 'warn',
     level: 'error',
-    create: () => okAsync(() => okAsync({ score: 100, reason: 'ok' })),
+    create: () => okAsync(() => okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] })),
   };
 }
 
@@ -77,9 +77,9 @@ function makeInterfaceRule(id: string): ResolvedRule {
     id,
     scope: 'interface',
     agent: 'test-agent',
-    threshold: 7,
+    borderline: 'warn',
     level: 'error',
-    create: () => okAsync(() => okAsync({ score: 100, reason: 'ok' })),
+    create: () => okAsync(() => okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] })),
   };
 }
 
@@ -175,9 +175,9 @@ describe('ScopeExtractor', () => {
           id: 'rule-1',
           scope: 'test-case',
           agent: 'test-agent',
-          threshold: 7,
+          borderline: 'warn',
           level: 'error',
-          create: () => okAsync(() => okAsync({ score: 100, reason: 'ok' })),
+          create: () => okAsync(() => okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] })),
         },
       ];
 

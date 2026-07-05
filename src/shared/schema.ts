@@ -34,7 +34,7 @@ function formatPath(error: ErrorObject): string {
 
 function formatPathValidationError(error: ErrorObject, path: string, objectLabel: string): string {
   if (error.keyword === 'anyOf' && path.startsWith('rules.')) {
-    return `Invalid ${path}: must be a level string or { level, threshold? }.`;
+    return `Invalid ${path}: must be a level string or { level, borderline? }.`;
   }
 
   if (path === '') {

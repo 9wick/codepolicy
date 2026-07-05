@@ -8,8 +8,7 @@ import TypeScript from 'tree-sitter-typescript';
 
 import { extractSignature } from '../../application/rule-execution/ast-extract';
 import { shouldSkipEntry } from '../../application/rule-execution/fs-walk';
-import { llmScoreSchema } from '../../shared/schema-definitions';
-import type { LlmScore } from '../../shared/types';
+import type { RuleVerdict } from '../../shared/types';
 import type { RuleContext, RuleDefinition } from '../rule-types';
 
 // --- Types ---
@@ -149,31 +148,23 @@ ${functionList}
   - 同ロールの関数がない場合は空配列を返すこと`;
 }
 
-function buildStep2Prompt(
-  targetName: string,
-  targetFilePath: string,
-  targetSource: string,
-  similarFunctionsSource: string,
-): string {
-  return `対象関数と同ロール関数群の記述スタイルの一貫性を評価してください。
+// 比較対象（同ロール関数群のソース）は固定入力の一部として criteria に含める。
+// 対象関数自身のソースは include: { source: true } で渡す。
+function buildStep2Criteria(similarFunctionsSource: string): string {
+  return `対象関数と同ロール関数群の記述スタイルの一貫性を検証してください。
 
-## 評価観点
-- エラーハンドリングのパターン（try/catch, Result型, null return, throw等）
-- 戻り値の型と構造の一貫性
-- 引数の取り方（型、順序、命名規則）
-- 内部構造の抽象度（直接実装 vs 委譲パターン）
-- 命名規則の一貫性
+## この rule が見たいこと
+- エラーハンドリングのパターン（try/catch, Result型, null return, throw等）が同ロール関数群と一貫しているか
+- 戻り値の型と構造が同ロール関数群と一貫しているか
+- 引数の取り方（型、順序、命名規則）が同ロール関数群と一貫しているか
+- 内部構造の抽象度（直接実装 vs 委譲パターン）が同ロール関数群と一貫しているか
+- 命名規則が同ロール関数群と一貫しているか
 
-## スコア基準
-- 90-100: 同ロール関数と完全に一貫したスタイル
-- 70-89: 概ね一貫しているが、些細な不一致がある
-- 40-69: 明らかなスタイルの不一致がある
-- 0-39: 同ロール関数と大きくスタイルが異なる
+## 違反として重く見る例
+- 同ロール関数群と明らかに異なるエラーハンドリング/戻り値構造/命名
 
-## 対象関数: ${targetName} (${targetFilePath})
-\`\`\`typescript
-${targetSource}
-\`\`\`
+## 違反として扱わないもの
+- 些細な表記揺れの範囲に留まる、軽微な不一致
 
 ## 同ロール関数群
 ${similarFunctionsSource}`;
@@ -233,11 +224,17 @@ function formatSimilarSources(fns: CollectedFunction[]): string {
     .join('\n\n');
 }
 
+const NO_SIMILAR_FUNCTIONS_VERDICT: RuleVerdict = {
+  verdict: 'pass',
+  reasoning: '同ロール関数が見つからなかったため判定スキップ',
+  citations: [],
+};
+
 function evaluateSymmetry(
   ctx: RuleContext,
   otherFunctions: CollectedFunction[],
   dirTree: string,
-): ResultAsync<LlmScore, Error> {
+): ResultAsync<RuleVerdict, Error> {
   const functionList = otherFunctions
     .map((fn) => `- ${fn.filePath}:${fn.name} — ${fn.signature}`)
     .join('\n');
@@ -252,25 +249,27 @@ function evaluateSymmetry(
     .andThen((step1Result) => {
       const similarFns = resolveSimilarFunctions(step1Result, otherFunctions);
       if (!similarFns) {
-        return okAsync({ score: 100, reason: '同ロール関数が見つからなかったため判定スキップ' });
+        return okAsync(NO_SIMILAR_FUNCTIONS_VERDICT);
       }
 
-      return ctx.llm.evaluate({
-        prompt: buildStep2Prompt(
-          ctx.name,
-          ctx.filePath,
-          ctx.source,
-          formatSimilarSources(similarFns),
-        ),
-        responseFormat: llmScoreSchema,
+      return ctx.llm.judge({
+        criteria: buildStep2Criteria(formatSimilarSources(similarFns)),
+        include: { source: true },
+        extraCitationSources: similarFns.map((fn) => fn.source),
       });
     });
 }
 
 // --- Rule definition ---
 
+const NO_COMPARISON_TARGETS_VERDICT: RuleVerdict = {
+  verdict: 'pass',
+  reasoning: '比較対象の関数なし',
+  citations: [],
+};
+
 const definition: RuleDefinition = {
-  meta: { scope: 'function', threshold: 70 },
+  meta: { scope: 'function' },
   optionsSchema,
   create: (workingDir, options?) => {
     const rawDirs = options?.['dirs'];
@@ -283,13 +282,13 @@ const definition: RuleDefinition = {
 
     return collectAllFunctions(scanDirs, parser, workingDir).map(
       (collectedFunctions) =>
-        (ctx: RuleContext): ResultAsync<LlmScore, Error> => {
+        (ctx: RuleContext): ResultAsync<RuleVerdict, Error> => {
           const otherFunctions = collectedFunctions.filter(
             (fn) => !(fn.filePath === ctx.filePath && fn.startLine === ctx.startLine),
           );
 
           if (otherFunctions.length === 0) {
-            return okAsync({ score: 100, reason: '比較対象の関数なし' });
+            return okAsync(NO_COMPARISON_TARGETS_VERDICT);
           }
 
           const filePaths = [...new Set(collectedFunctions.map((fn) => fn.filePath))];

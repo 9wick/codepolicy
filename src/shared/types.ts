@@ -4,12 +4,13 @@ import type { RuleCreateFn } from '../rules/rule-types';
 
 import type { CodepolicyError } from './errors';
 import {
+  borderlineHandlingSchema,
   configFilterSchema,
-  llmScoreSchema,
   overrideEntrySchema,
   ruleConfigSchema,
   ruleLevelSchema,
   ruleScopeSchema,
+  verdictLabelSchema,
   codepolicyConfigFileSchema,
 } from './schema-definitions';
 
@@ -34,7 +35,7 @@ export type ResolvedRule = {
   id: string;
   scope: RuleScope | RuleScope[];
   agent: string;
-  threshold: number;
+  borderline: BorderlineHandling;
   level: RuleLevel;
   create: RuleCreateFn;
   options?: Record<string, unknown>;
@@ -82,7 +83,15 @@ export type TokenUsage = {
 
 // --- LLM ---
 
-export type LlmScore = Static<typeof llmScoreSchema>;
+export type VerdictLabel = Static<typeof verdictLabelSchema>;
+export type BorderlineHandling = Static<typeof borderlineHandlingSchema>;
+
+// rule → pipeline の契約（LlmScore を置換）
+export type RuleVerdict = {
+  verdict: VerdictLabel;
+  reasoning: string;
+  citations: string[]; // コード内で導出した場合は []
+};
 
 export type ModelReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 
@@ -97,9 +106,9 @@ export type LintResult = {
   filePath: string;
   scopeName: string;
   rule: ResolvedRule;
-  score: number;
-  reason: string;
-  passed: boolean;
+  verdict: VerdictLabel;
+  reasoning: string;
+  citations: string[];
   usage: TokenUsage;
   durationMs: number;
 };

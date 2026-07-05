@@ -36,15 +36,15 @@ describe('no-implicit-fallback', () => {
       },
       {
         name: 'should fail when exceptions are swallowed into defaults',
-        code: `function parsePort(env: Env): number {
+        code: `function getDiscountRate(member: Member): number {
   try {
-    return Number.parseInt(env.PORT, 10);
+    return calculateMemberDiscount(member);
   } catch {
-    return 3000;
+    return 0;
   }
 }`,
-        filePath: 'src/config/env.ts',
-        scopeName: 'parsePort',
+        filePath: 'src/domain/pricing.ts',
+        scopeName: 'getDiscountRate',
       },
     ],
   });

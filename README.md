@@ -48,7 +48,7 @@ Output:
 ✗ codepolicy failed
 
   src/user/repository.ts > getUserById()
-    [function-contract] score: 42
+    [function-contract] violation (error)
     getUser() の実装内部でログの書き込みが行われています。
     名前から期待される読み取り専用の操作と一致しません。
 ```
@@ -76,7 +76,7 @@ rules:
   function-contract: error
   ssot-violation:
     level: warn
-    threshold: 60    # override default threshold (0-100)
+    borderline: off   # how to treat "borderline" verdicts: error | warn | off (default: warn)
   test-validity: off
 
 # Glob patterns to ignore
@@ -94,7 +94,7 @@ overrides:
 
 ## Built-in Rules
 
-9 rules ship with codepolicy. All default to threshold 70.
+9 rules ship with codepolicy. Each check returns a verdict — `violation` (evidence-backed and independently verified), `borderline` (the judge could not decide), or `pass`. A `violation` is reported at the rule's `level`; a `borderline` is reported according to the rule's `borderline` setting (default: `warn`).
 
 | Rule | Scope | What it checks |
 |------|-------|----------------|
@@ -154,7 +154,7 @@ Each LLM evaluation takes 5–30 seconds. Without tuning, a 500-file project can
 
 ### Result cache (default: on)
 
-codepolicy persists each `(scope, rule)` evaluation to `<workingDir>/.codepolicy/cache/`. Subsequent runs reuse the stored score when:
+codepolicy persists each `(scope, rule)` evaluation to `<workingDir>/.codepolicy/cache/`. Subsequent runs reuse the stored verdict when:
 
 - the scope's source code is unchanged
 - the rule's prompt / responseFormat / options haven't changed (auto-detected via rule body hash)
@@ -200,33 +200,27 @@ codepolicy puts the rule prompt and output format at the start of every user pro
 Create a `.ts` file that exports a `RuleModule`:
 
 ```typescript
-import { Type } from '@sinclair/typebox';
 import { okAsync } from 'neverthrow';
 import type { RuleModule } from 'codepolicy';
-
-const schema = Type.Object({
-  score: Type.Number({ minimum: 0, maximum: 100 }),
-  reason: Type.String(),
-}, { additionalProperties: false });
 
 const myRule: RuleModule = {
   id: 'my-rule',
   definition: {
-    meta: { scope: 'function', threshold: 70 },
+    meta: { scope: 'function' },
     create: () =>
       okAsync((ctx) =>
-        ctx.llm
-          .evaluate({
-            prompt: `Check if this function follows our naming conventions.`,
-            include: { source: true, name: true, filePath: true },
-            responseFormat: schema,
-          })
+        ctx.llm.judge({
+          criteria: `Check if this function follows our naming conventions.`,
+          include: { source: true, name: true, filePath: true },
+        }),
       ),
   },
 };
 
 export default myRule;
 ```
+
+`ctx.llm.judge()` runs the built-in three-stage judgment: an LLM proposer must cite the offending code verbatim, the citations are mechanically checked against the target source (hallucinated evidence dismisses the claim), and a second adversarial LLM pass independently confirms, dismisses, or marks the claim `borderline`. It returns `{ verdict, reasoning, citations }`. For intermediate steps with custom schemas, `ctx.llm.evaluate()` is still available; the evaluator must ultimately return a `RuleVerdict`.
 
 Register in `.codepolicy.yml`:
 

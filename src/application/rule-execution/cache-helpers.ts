@@ -4,6 +4,7 @@ import type {
   LintResult,
   ModelReasoningEffort,
   ResolvedRule,
+  RuleVerdict,
   ScopeUnit,
   TokenUsage,
 } from '../../shared/types';
@@ -49,17 +50,16 @@ const ZERO_USAGE: TokenUsage = {
 export function buildResultFromCache(
   scope: ScopeUnit,
   rule: ResolvedRule,
-  cachedScore: number,
-  cachedReason: string,
+  cachedVerdict: RuleVerdict,
   durationMs: number,
 ): LintResult {
   return {
     filePath: scope.filePath,
     scopeName: scope.name,
     rule,
-    score: cachedScore,
-    reason: cachedReason,
-    passed: cachedScore >= rule.threshold,
+    verdict: cachedVerdict.verdict,
+    reasoning: cachedVerdict.reasoning,
+    citations: cachedVerdict.citations,
     usage: ZERO_USAGE,
     durationMs,
   };

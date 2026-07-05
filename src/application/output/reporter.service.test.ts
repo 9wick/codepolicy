@@ -11,9 +11,9 @@ const makeRule = (overrides?: Partial<ResolvedRule>): ResolvedRule => ({
   id: 'function-contract',
   scope: 'function',
   agent: 'claude',
-  threshold: 70,
+  borderline: 'warn',
   level: 'error',
-  create: () => okAsync(() => okAsync({ score: 100, reason: 'ok' })),
+  create: () => okAsync(() => okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] })),
   ...overrides,
 });
 
@@ -21,9 +21,9 @@ const makeResult = (overrides?: Partial<LintResult>): LintResult => ({
   filePath: 'src/user/repository.ts',
   scopeName: 'getUserById()',
   rule: makeRule(),
-  score: 42,
-  reason: 'getUser() の実装内部でログの書き込みが行われています。',
-  passed: false,
+  verdict: 'violation',
+  reasoning: 'getUser() の実装内部でログの書き込みが行われています。',
+  citations: [],
   usage: {
     inputTokens: 1200,
     outputTokens: 350,
@@ -49,31 +49,91 @@ describe('Reporter', () => {
         makeResult({
           filePath: 'src/user/service.ts',
           scopeName: 'updateUser()',
-          rule: makeRule({ id: 'layer-responsibility', threshold: 80, level: 'warn' }),
-          score: 61,
-          reason: 'UserService がDBの接続処理を直接参照しています。',
-          passed: false,
+          rule: makeRule({ id: 'layer-responsibility', level: 'warn' }),
+          reasoning: 'UserService がDBの接続処理を直接参照しています。',
+          verdict: 'violation',
         }),
       ];
 
       const output = reporter.format({ results, errors: [] });
 
-      expect(output).toContain('2 violations found');
+      expect(output).toContain('2 violation(s) found');
       expect(output).toContain('src/user/repository.ts > getUserById()');
-      expect(output).toContain('[function-contract] score: 42 (threshold: 70) error');
+      expect(output).toContain('[function-contract] violation (error)');
       expect(output).toContain('[1.5sec | token in:1,200 out:350]');
       expect(output).toContain('getUser() の実装内部でログの書き込みが行われています。');
       expect(output).toContain('src/user/service.ts > updateUser()');
-      expect(output).toContain('[layer-responsibility] score: 61 (threshold: 80) warn');
+      expect(output).toContain('[layer-responsibility] violation (warn)');
       expect(output).toContain('UserService がDBの接続処理を直接参照しています。');
+    });
+
+    it('borderline あり → summary に borderline 件数が含まれる', () => {
+      const results: LintResult[] = [
+        makeResult({ verdict: 'borderline', rule: makeRule({ borderline: 'warn' }) }),
+      ];
+
+      const output = reporter.format({ results, errors: [] });
+
+      expect(output).toContain('1 borderline(s) found');
+      expect(output).toContain('[function-contract] borderline (warn)');
+    });
+
+    it('violation と borderline 混在 → summary に両方の件数が含まれる', () => {
+      const results: LintResult[] = [
+        makeResult({ verdict: 'violation' }),
+        makeResult({
+          filePath: 'src/user/service.ts',
+          scopeName: 'updateUser()',
+          verdict: 'borderline',
+          rule: makeRule({ id: 'layer-responsibility', borderline: 'warn' }),
+        }),
+      ];
+
+      const output = reporter.format({ results, errors: [] });
+
+      expect(output).toContain('1 violation(s), 1 borderline(s) found');
+    });
+
+    it('citations がある場合、インデントされて表示される', () => {
+      const results: LintResult[] = [makeResult({ citations: ['const x = 1;', 'return x;'] })];
+
+      const output = reporter.format({ results, errors: [] });
+
+      expect(output).toContain('const x = 1;');
+      expect(output).toContain('return x;');
+    });
+
+    it('citations が空の場合、citation 行は表示されない', () => {
+      const results: LintResult[] = [makeResult({ citations: [] })];
+
+      const output = reporter.format({ results, errors: [] });
+
+      expect(output).not.toContain('      - ');
+    });
+
+    it('severity=off (borderline かつ rule.borderline=off) の finding は表示されない', () => {
+      const results: LintResult[] = [
+        makeResult({ verdict: 'borderline', rule: makeRule({ borderline: 'off' }) }),
+      ];
+
+      const output = reporter.format({ results, errors: [] });
+
+      expect(output).toContain('all checks passed');
+    });
+
+    it('verdict=pass の結果は表示されない', () => {
+      const results: LintResult[] = [makeResult({ verdict: 'pass', citations: [] })];
+
+      const output = reporter.format({ results, errors: [] });
+
+      expect(output).toContain('all checks passed');
     });
 
     it('violation なし → 成功メッセージ（usage合計を含む）', () => {
       const results: LintResult[] = [
-        makeResult({ passed: true, score: 85 }),
+        makeResult({ verdict: 'pass' }),
         makeResult({
-          passed: true,
-          score: 90,
+          verdict: 'pass',
           filePath: 'src/user/service.ts',
           scopeName: 'updateUser()',
           rule: makeRule({ id: 'layer-responsibility' }),
@@ -100,10 +160,9 @@ describe('Reporter', () => {
       const results: LintResult[] = [
         makeResult(),
         makeResult({
-          rule: makeRule({ id: 'naming-convention', threshold: 60, level: 'warn' }),
-          score: 30,
-          reason: '命名規則に違反しています。',
-          passed: false,
+          rule: makeRule({ id: 'naming-convention', level: 'warn' }),
+          reasoning: '命名規則に違反しています。',
+          verdict: 'violation',
         }),
       ];
 
@@ -120,14 +179,14 @@ describe('Reporter', () => {
 
   describe('getExitCode', () => {
     it('violation なし → exit code 0', () => {
-      const results: LintResult[] = [makeResult({ passed: true, score: 85 })];
+      const results: LintResult[] = [makeResult({ verdict: 'pass' })];
       expect(reporter.getExitCode({ results, errors: [] })).toBe(0);
     });
 
     it('warn のみ → exit code 0', () => {
       const results: LintResult[] = [
         makeResult({
-          passed: false,
+          verdict: 'violation',
           rule: makeRule({ level: 'warn' }),
         }),
       ];
@@ -137,7 +196,7 @@ describe('Reporter', () => {
     it('error あり → exit code 1', () => {
       const results: LintResult[] = [
         makeResult({
-          passed: false,
+          verdict: 'violation',
           rule: makeRule({ level: 'error' }),
         }),
       ];
@@ -147,12 +206,32 @@ describe('Reporter', () => {
     it('warn と error 混在 → exit code 1', () => {
       const results: LintResult[] = [
         makeResult({
-          passed: false,
+          verdict: 'violation',
           rule: makeRule({ level: 'warn' }),
         }),
         makeResult({
-          passed: false,
+          verdict: 'violation',
           rule: makeRule({ level: 'error' }),
+        }),
+      ];
+      expect(reporter.getExitCode({ results, errors: [] })).toBe(1);
+    });
+
+    it('borderline (rule.borderline=warn) → exit code 0', () => {
+      const results: LintResult[] = [
+        makeResult({
+          verdict: 'borderline',
+          rule: makeRule({ level: 'error', borderline: 'warn' }),
+        }),
+      ];
+      expect(reporter.getExitCode({ results, errors: [] })).toBe(0);
+    });
+
+    it('borderline (rule.borderline=error) → exit code 1', () => {
+      const results: LintResult[] = [
+        makeResult({
+          verdict: 'borderline',
+          rule: makeRule({ level: 'error', borderline: 'error' }),
         }),
       ];
       expect(reporter.getExitCode({ results, errors: [] })).toBe(1);
@@ -162,11 +241,10 @@ describe('Reporter', () => {
       expect(reporter.getExitCode({ results: [], errors: [] })).toBe(0);
     });
 
-    it('passed=true の error ルールは exit code に影響しない', () => {
+    it('verdict=pass の error ルールは exit code に影響しない', () => {
       const results: LintResult[] = [
         makeResult({
-          passed: true,
-          score: 85,
+          verdict: 'pass',
           rule: makeRule({ level: 'error' }),
         }),
       ];
@@ -205,7 +283,7 @@ describe('Reporter', () => {
     });
 
     it('結果とエラーが混在する場合 → 両方が出力される', () => {
-      const results: LintResult[] = [makeResult({ passed: false })];
+      const results: LintResult[] = [makeResult({ verdict: 'violation' })];
       const errors: LintErrorEntry[] = [
         {
           filePath: 'src/bar.ts',
@@ -216,7 +294,7 @@ describe('Reporter', () => {
       ];
       const output = reporter.format({ results, errors });
 
-      expect(output).toContain('1 violations');
+      expect(output).toContain('1 violation(s) found');
       expect(output).toContain('1 error');
       expect(output).toContain('Connection refused');
     });

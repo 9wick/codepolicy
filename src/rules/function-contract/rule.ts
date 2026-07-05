@@ -1,7 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import { okAsync } from 'neverthrow';
 
-import { llmScoreSchema } from '../../shared/schema-definitions';
 import type { RuleDefinition } from '../rule-types';
 
 const inferenceSchema = Type.Object(
@@ -18,7 +17,7 @@ function stripTypeDoc(typedoc: string): string {
 }
 
 const definition: RuleDefinition = {
-  meta: { scope: 'function', threshold: 70, usesFileTree: true },
+  meta: { scope: 'function', usesFileTree: true },
   create: () =>
     okAsync((ctx) =>
       ctx.llm
@@ -31,8 +30,8 @@ const definition: RuleDefinition = {
           responseFormat: inferenceSchema,
         })
         .andThen((step1) =>
-          ctx.llm.evaluate({
-            prompt: `以下は関数の実装コードから推測された振る舞いと、実際の実装コードです。
+          ctx.llm.judge({
+            criteria: `以下は関数の実装コードから推測された振る舞いと、実際の実装コードです。
 関数の「名前・引数・戻り値」だけを見た呼び出し元が抱く期待に対して、実装が裏切っていないかをレビューしてください。
 
 ## 推測された振る舞い
@@ -47,7 +46,6 @@ ${stripTypeDoc(step1.inference)}
 - データベースの読み取り・検索はgetXxxにおける副作用に含めない（標準的なパターン）
 - 副作用とは: 書き込み、削除、通知送信、外部API呼び出し（変更系）、ログ出力など、呼び出し元が予期しない外部への影響を指す`,
             include: { source: true },
-            responseFormat: llmScoreSchema,
           }),
         ),
     ),

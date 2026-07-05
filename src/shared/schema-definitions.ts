@@ -19,11 +19,17 @@ export const ruleScopeSchema = Type.Union([
   Type.Literal('interface'),
 ]);
 
+export const borderlineHandlingSchema = Type.Union([
+  Type.Literal('error'),
+  Type.Literal('warn'),
+  Type.Literal('off'),
+]);
+
 export const ruleConfigSchema = Type.Union([
   ruleLevelSchema,
   Type.Object({
     level: ruleLevelSchema,
-    threshold: Type.Optional(Type.Number()),
+    borderline: Type.Optional(borderlineHandlingSchema), // default 'warn'
   }),
 ]);
 
@@ -71,21 +77,41 @@ export const codepolicyConfigFileSchema = Type.Object(
   },
 );
 
-export const llmScoreSchema = Type.Object(
+export const verdictLabelSchema = Type.Union([
+  Type.Literal('violation'),
+  Type.Literal('borderline'),
+  Type.Literal('pass'),
+]);
+
+// proposer の LLM 出力（フィールド順 = 生成順 = 推論順）
+export const judgeProposalSchema = Type.Object(
   {
-    score: Type.Integer({
-      minimum: 0,
-      maximum: 100,
+    citations: Type.Array(Type.String(), {
       description:
-        '判定スコア。0から100の整数で返す（0-1スケールや小数は不可）。値が高いほど観点に適合。',
+        '違反の根拠となる対象コードからの逐語的な引用。違反がなければ空配列。対象コードに実在しない文字列を捏造しないこと。',
     }),
-    reason: Type.String({
-      minLength: 1,
-      description: '判定理由。主要な根拠を簡潔に説明する。',
+    matchedCriterion: Type.Union([Type.String(), Type.Null()], {
+      description: 'チェック観点のうち該当した違反基準の要約。違反がなければ null。',
     }),
+    reasoning: Type.String({ minLength: 1, description: '判定理由。' }),
+    verdict: verdictLabelSchema,
   },
   {
     additionalProperties: false,
-    description: 'セマンティックlintの判定結果。',
+    description:
+      'セマンティックlintの一次判定。violation は citations と matchedCriterion を提示できる場合のみ。確信が持てない場合は borderline。',
   },
+);
+
+// verifier の LLM 出力
+export const judgeVerificationSchema = Type.Object(
+  {
+    reasoning: Type.String({ minLength: 1 }),
+    result: Type.Union([
+      Type.Literal('confirmed'),
+      Type.Literal('dismissed'),
+      Type.Literal('inconclusive'),
+    ]),
+  },
+  { additionalProperties: false },
 );

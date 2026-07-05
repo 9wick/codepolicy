@@ -1,27 +1,55 @@
 import { injectable } from '@needle-di/core';
 
-import type { LintErrorEntry, LintOutput, LintResult, TokenUsage } from '../../shared/types';
+import type {
+  LintErrorEntry,
+  LintOutput,
+  LintResult,
+  RuleLevel,
+  TokenUsage,
+} from '../../shared/types';
 import { formatErrorCauseChain } from '../../shared/errors';
 
-type ViolationGroup = {
-  filePath: string;
-  scopeName: string;
-  violations: LintResult[];
+// verdict='violation' の重大度は rule.level、'borderline' は rule.borderline（resolver が default 'warn' を確定済み）。
+// severity='off' は表示対象外にするための finding へのマッピング。
+type Finding = {
+  result: LintResult;
+  severity: RuleLevel;
 };
 
-function groupViolations(violations: LintResult[]): ViolationGroup[] {
-  const groups = new Map<string, ViolationGroup>();
+function severityOf(result: LintResult): RuleLevel {
+  return result.verdict === 'violation' ? result.rule.level : result.rule.borderline;
+}
 
-  for (const v of violations) {
-    const key = `${v.filePath}:${v.scopeName}`;
+function toFindings(results: LintResult[]): Finding[] {
+  const findings: Finding[] = [];
+  for (const result of results) {
+    if (result.verdict === 'pass') continue;
+    const severity = severityOf(result);
+    if (severity === 'off') continue;
+    findings.push({ result, severity });
+  }
+  return findings;
+}
+
+type FindingGroup = {
+  filePath: string;
+  scopeName: string;
+  findings: Finding[];
+};
+
+function groupFindings(findings: Finding[]): FindingGroup[] {
+  const groups = new Map<string, FindingGroup>();
+
+  for (const finding of findings) {
+    const key = `${finding.result.filePath}:${finding.result.scopeName}`;
     const existing = groups.get(key);
     if (existing) {
-      existing.violations.push(v);
+      existing.findings.push(finding);
     } else {
       groups.set(key, {
-        filePath: v.filePath,
-        scopeName: v.scopeName,
-        violations: [v],
+        filePath: finding.result.filePath,
+        scopeName: finding.result.scopeName,
+        findings: [finding],
       });
     }
   }
@@ -61,15 +89,23 @@ function sumUsage(results: LintResult[]): { usage: TokenUsage; durationMs: numbe
   };
 }
 
-function formatViolation(v: LintResult): string {
-  const levelLabel = v.rule.level;
-  const usageSuffix = formatUsage(v.usage, v.durationMs);
-  return `    [${v.rule.id}] score: ${v.score} (threshold: ${v.rule.threshold}) ${levelLabel}  ${usageSuffix}\n    ${v.reason}`;
+function formatCitations(citations: string[]): string {
+  if (citations.length === 0) return '';
+  const lines = citations.map((c) => `      - ${c}`).join('\n');
+  return `\n${lines}`;
 }
 
-function formatGroup(group: ViolationGroup): string {
+function formatFinding(finding: Finding): string {
+  const { result, severity } = finding;
+  const usageSuffix = formatUsage(result.usage, result.durationMs);
+  const header = `    [${result.rule.id}] ${result.verdict} (${severity})  ${usageSuffix}`;
+  const reasoningLine = `    ${result.reasoning}`;
+  return `${header}\n${reasoningLine}${formatCitations(result.citations)}`;
+}
+
+function formatGroup(group: FindingGroup): string {
   const header = `  ${group.filePath} > ${group.scopeName}`;
-  const details = group.violations.map(formatViolation).join('\n\n');
+  const details = group.findings.map(formatFinding).join('\n\n');
   return `${header}\n${details}`;
 }
 
@@ -89,6 +125,24 @@ function countRules(results: LintResult[]): number {
   return ids.size;
 }
 
+function countByVerdict(findings: Finding[]): { violations: number; borderlines: number } {
+  let violations = 0;
+  let borderlines = 0;
+  for (const finding of findings) {
+    if (finding.result.verdict === 'violation') violations++;
+    if (finding.result.verdict === 'borderline') borderlines++;
+  }
+  return { violations, borderlines };
+}
+
+function formatSummaryHeader(findings: Finding[]): string {
+  const { violations, borderlines } = countByVerdict(findings);
+  const parts: string[] = [];
+  if (violations > 0) parts.push(`${violations} violation(s)`);
+  if (borderlines > 0) parts.push(`${borderlines} borderline(s)`);
+  return `${parts.join(', ')} found`;
+}
+
 function formatErrorEntry(entry: LintErrorEntry): string {
   const lines = formatErrorCauseChain(entry.error);
   return `  ${entry.filePath} > ${entry.scopeName}\n    [${entry.rule.id}] ${lines.join('\n    ')}`;
@@ -98,31 +152,27 @@ function formatErrorEntry(entry: LintErrorEntry): string {
 export class Reporter {
   format(output: LintOutput): string {
     const { results, errors } = output;
-    const violations = results.filter((r) => !r.passed);
+    const findings = toFindings(results);
     const totals = sumUsage(results);
     const totalSuffix = formatUsage(totals.usage, totals.durationMs);
 
     const sections: string[] = [];
 
-    if (violations.length === 0 && errors.length === 0) {
+    if (findings.length === 0 && errors.length === 0) {
       const scopes = countScopes(results);
       const rules = countRules(results);
-      return `\u2713 codepolicy: all checks passed (${scopes} scopes \u00d7 ${rules} rules) ${totalSuffix}`;
+      return `✓ codepolicy: all checks passed (${scopes} scopes × ${rules} rules) ${totalSuffix}`;
     }
 
-    if (violations.length > 0) {
-      const groups = groupViolations(violations);
+    if (findings.length > 0) {
+      const groups = groupFindings(findings);
       const body = groups.map(formatGroup).join('\n\n');
-      sections.push(
-        `\u2717 codepolicy: ${violations.length} violations found ${totalSuffix}\n\n${body}`,
-      );
+      sections.push(`✗ codepolicy: ${formatSummaryHeader(findings)} ${totalSuffix}\n\n${body}`);
     }
 
     if (errors.length > 0) {
       const errorBody = errors.map(formatErrorEntry).join('\n\n');
-      sections.push(
-        `\u2717 codepolicy: ${errors.length} error(s) during evaluation\n\n${errorBody}`,
-      );
+      sections.push(`✗ codepolicy: ${errors.length} error(s) during evaluation\n\n${errorBody}`);
     }
 
     return sections.join('\n\n');
@@ -131,7 +181,8 @@ export class Reporter {
   getExitCode(output: LintOutput): number {
     const { results, errors } = output;
     if (errors.length > 0) return 1;
-    const hasError = results.some((r) => !r.passed && r.rule.level === 'error');
+    const findings = toFindings(results);
+    const hasError = findings.some((finding) => finding.severity === 'error');
     return hasError ? 1 : 0;
   }
 }

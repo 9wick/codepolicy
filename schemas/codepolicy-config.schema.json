@@ -84,8 +84,21 @@
                     }
                   ]
                 },
-                "threshold": {
-                  "type": "number"
+                "borderline": {
+                  "anyOf": [
+                    {
+                      "const": "error",
+                      "type": "string"
+                    },
+                    {
+                      "const": "warn",
+                      "type": "string"
+                    },
+                    {
+                      "const": "off",
+                      "type": "string"
+                    }
+                  ]
                 }
               }
             }
@@ -159,8 +172,21 @@
                           }
                         ]
                       },
-                      "threshold": {
-                        "type": "number"
+                      "borderline": {
+                        "anyOf": [
+                          {
+                            "const": "error",
+                            "type": "string"
+                          },
+                          {
+                            "const": "warn",
+                            "type": "string"
+                          },
+                          {
+                            "const": "off",
+                            "type": "string"
+                          }
+                        ]
                       }
                     }
                   }

@@ -20,6 +20,7 @@ import type {
   OverrideEntry,
   ResolvedRule,
   RuleScope,
+  RuleVerdict,
   ScopeUnit,
   CodepolicyConfig,
   TokenUsage,
@@ -96,6 +97,12 @@ function buildPairs(
     }
   }
   return pairs;
+}
+
+function verdictLogLabel(verdict: RuleVerdict['verdict']): string {
+  if (verdict === 'violation') return 'VIOLATION';
+  if (verdict === 'borderline') return 'BORDERLINE';
+  return 'PASS';
 }
 
 function filterByRuleId(rules: ResolvedRule[], ruleId: string | null): ResolvedRule[] {
@@ -321,15 +328,13 @@ export class LintPipeline {
   }
 
   private logEvaluationResult(
-    rule: ResolvedRule,
     usage: TokenUsage,
     durationMs: number,
-    score: number,
+    verdict: RuleVerdict['verdict'],
   ): void {
-    const status = score >= rule.threshold ? 'PASS' : 'FAIL';
     const seconds = (durationMs / 1000).toFixed(1);
     this.log.info(
-      `${status} (score: ${score}, threshold: ${rule.threshold}) [${seconds}sec | token in:${usage.inputTokens.toLocaleString()} out:${usage.outputTokens.toLocaleString()}]`,
+      `${verdictLogLabel(verdict)} [${seconds}sec | token in:${usage.inputTokens.toLocaleString()} out:${usage.outputTokens.toLocaleString()}]`,
     );
     const details: string[] = [];
     if (usage.cacheReadInputTokens > 0 || usage.cacheCreationInputTokens > 0) {
@@ -365,17 +370,17 @@ export class LintPipeline {
     this.log.info('Evaluating...');
     return evaluator(ctx)
       .mapErr((cause) => codepolicyError('LLM_API_ERROR', 'Rule execution failed.', cause))
-      .andThen((llmScore) => {
+      .andThen((ruleVerdict) => {
         const durationMs = Math.round(performance.now() - startMs);
         const usage = helper.getUsage();
-        this.logEvaluationResult(rule, usage, durationMs, llmScore.score);
+        this.logEvaluationResult(usage, durationMs, ruleVerdict.verdict);
         const result: LintResult = {
           filePath: scope.filePath,
           scopeName: scope.name,
           rule,
-          score: llmScore.score,
-          reason: llmScore.reason,
-          passed: llmScore.score >= rule.threshold,
+          verdict: ruleVerdict.verdict,
+          reasoning: ruleVerdict.reasoning,
+          citations: ruleVerdict.citations,
           usage,
           durationMs,
         };
@@ -383,7 +388,7 @@ export class LintPipeline {
           return okAsync<LintResult, CodepolicyError>(result);
         }
         return this.evalCache
-          .save(cacheInput, { score: llmScore.score, reason: llmScore.reason })
+          .save(cacheInput, ruleVerdict)
           .map(() => result)
           .orElse((cause) => {
             this.log.warn(`Failed to save cache: ${cause.message}`);
@@ -404,12 +409,11 @@ export class LintPipeline {
     return (outcome) => {
       if (outcome.kind === 'hit') {
         const durationMs = Math.round(performance.now() - lookupStart);
-        const passLabel = outcome.entry.score >= rule.threshold ? 'PASS' : 'FAIL';
         this.log.info(
-          `${passLabel} (score: ${outcome.entry.score}, threshold: ${rule.threshold}) [cache hit | ${(durationMs / 1000).toFixed(1)}sec]`,
+          `${verdictLogLabel(outcome.entry.verdict)} [cache hit | ${(durationMs / 1000).toFixed(1)}sec]`,
         );
         return okAsync<LintResult, CodepolicyError>(
-          buildResultFromCache(scope, rule, outcome.entry.score, outcome.entry.reason, durationMs),
+          buildResultFromCache(scope, rule, outcome.entry, durationMs),
         );
       }
       if (outcome.kind === 'corrupted') {

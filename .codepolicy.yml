@@ -1,4 +1,4 @@
-agent: github-copilot/gpt-4.1
+agent: openai/gpt-5.4
 filter: diff
 
 rules:
