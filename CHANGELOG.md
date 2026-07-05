@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/9wick/codepolicy/compare/codepolicy-v0.2.2...codepolicy-v1.0.0) (2026-07-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* rule config `threshold` is replaced by `borderline` (error | warn | off, default warn) controlling how borderline verdicts are reported. Custom rule API changes: `RuleMeta.threshold` is removed and evaluators now return `RuleVerdict` instead of `{score, reason}`. Old cache entries fail validation and are re-evaluated automatically.
+
+### Features
+
+* replace score/threshold scoring with evidence-based verdict pipeline ([1c0bd43](https://github.com/9wick/codepolicy/commit/1c0bd43f53bd4a2fefc15d6f2c28d2bcbdd05d02))
+
 ## [0.2.2](https://github.com/9wick/codepolicy/compare/codepolicy-v0.2.1...codepolicy-v0.2.2) (2026-05-07)
 
 
