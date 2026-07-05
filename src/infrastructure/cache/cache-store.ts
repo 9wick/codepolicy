@@ -2,6 +2,7 @@ import { InjectionToken } from '@needle-di/core';
 import type { ResultAsync } from 'neverthrow';
 
 import type { CodepolicyError } from '../../shared/errors';
+import type { VerdictLabel } from '../../shared/types';
 
 export type CacheKey = { readonly raw: string };
 
@@ -10,8 +11,9 @@ export function makeCacheKey(raw: string): CacheKey {
 }
 
 export type CachedEntry = {
-  score: number;
-  reason: string;
+  verdict: VerdictLabel;
+  reasoning: string;
+  citations: string[];
   savedAt: string;
   codepolicyVersion: string;
 };

@@ -11,8 +11,8 @@ import type { RuleModule } from './rule-types';
 const makeRule = (id: string, overrides?: Partial<RuleModule>): RuleModule => ({
   id,
   definition: {
-    meta: { scope: 'function', threshold: 7 },
-    create: () => okAsync(() => okAsync({ score: 100, reason: 'ok' })),
+    meta: { scope: 'function' },
+    create: () => okAsync(() => okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] })),
   },
   ...overrides,
 });
@@ -43,7 +43,7 @@ describe('RuleResolver', () => {
       id: 'naming',
       scope: 'function',
       agent: 'config-agent',
-      threshold: 7,
+      borderline: 'warn',
       level: 'error',
     });
     expect(resolved[0]!.create).toBeTypeOf('function');
@@ -74,31 +74,24 @@ describe('RuleResolver', () => {
     expect(resolved[0]!).toMatchObject({ id: 'naming', level: 'off' });
   });
 
-  it('should override threshold from config', () => {
+  it('should override borderline from config', () => {
     const rules = [makeRule('naming')];
-    const config = makeConfig({ naming: { level: 'error', threshold: 9 } });
+    const config = makeConfig({ naming: { level: 'error', borderline: 'off' } });
 
     const result = resolver.resolve(config, rules);
 
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()[0]!.threshold).toBe(9);
+    expect(result._unsafeUnwrap()[0]!.borderline).toBe('off');
   });
 
-  it('should use rule default threshold when config does not specify', () => {
-    const rules = [
-      makeRule('naming', {
-        definition: {
-          meta: { scope: 'function', threshold: 5 },
-          create: () => okAsync(() => okAsync({ score: 100, reason: 'ok' })),
-        },
-      }),
-    ];
+  it('should default borderline to warn when config does not specify', () => {
+    const rules = [makeRule('naming')];
     const config = makeConfig({ naming: 'warn' });
 
     const result = resolver.resolve(config, rules);
 
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()[0]!.threshold).toBe(5);
+    expect(result._unsafeUnwrap()[0]!.borderline).toBe('warn');
   });
 
   it('should only include rules listed in config (whitelist)', () => {
@@ -179,9 +172,9 @@ describe('RuleResolver', () => {
       {
         id: 'ssot',
         definition: {
-          meta: { scope: 'function', threshold: 7 },
+          meta: { scope: 'function' },
           optionsSchema,
-          create: () => okAsync(() => okAsync({ score: 100, reason: 'ok' })),
+          create: () => okAsync(() => okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] })),
         },
       },
     ];
@@ -210,9 +203,9 @@ describe('RuleResolver', () => {
       {
         id: 'ssot',
         definition: {
-          meta: { scope: 'function', threshold: 7 },
+          meta: { scope: 'function' },
           optionsSchema,
-          create: () => okAsync(() => okAsync({ score: 100, reason: 'ok' })),
+          create: () => okAsync(() => okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] })),
         },
       },
     ];
@@ -241,9 +234,9 @@ describe('RuleResolver', () => {
       {
         id: 'ssot',
         definition: {
-          meta: { scope: 'function', threshold: 7 },
+          meta: { scope: 'function' },
           optionsSchema,
-          create: () => okAsync(() => okAsync({ score: 100, reason: 'ok' })),
+          create: () => okAsync(() => okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] })),
         },
       },
     ];

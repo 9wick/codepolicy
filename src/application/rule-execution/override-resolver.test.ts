@@ -9,9 +9,9 @@ const baseRule: ResolvedRule = {
   id: 'naming',
   scope: 'function',
   agent: 'claude',
-  threshold: 7,
+  borderline: 'warn',
   level: 'error',
-  create: () => okAsync(() => okAsync({ score: 100, reason: 'ok' })),
+  create: () => okAsync(() => okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] })),
   options: { style: 'camelCase' },
 };
 
@@ -60,15 +60,15 @@ describe('applyOverrides', () => {
     expect(result).toBeNull();
   });
 
-  it('returns rule with new threshold when override changes threshold', () => {
+  it('returns rule with new borderline when override changes borderline', () => {
     const overrides: OverrideEntry[] = [
-      { files: ['src/**/*.ts'], rules: { naming: { level: 'error', threshold: 9 } } },
+      { files: ['src/**/*.ts'], rules: { naming: { level: 'error', borderline: 'off' } } },
     ];
 
     const result = applyOverrides(baseRule, 'src/app/foo.ts', overrides);
 
     expect(result).not.toBeNull();
-    expect(result!.threshold).toBe(9);
+    expect(result!.borderline).toBe('off');
     expect(result!.level).toBe('error');
   });
 
@@ -96,15 +96,15 @@ describe('applyOverrides', () => {
 
   it('applies later override over earlier one (last wins)', () => {
     const overrides: OverrideEntry[] = [
-      { files: ['src/**/*.ts'], rules: { naming: { level: 'warn', threshold: 5 } } },
-      { files: ['src/**/*.ts'], rules: { naming: { level: 'error', threshold: 9 } } },
+      { files: ['src/**/*.ts'], rules: { naming: { level: 'warn', borderline: 'off' } } },
+      { files: ['src/**/*.ts'], rules: { naming: { level: 'error', borderline: 'error' } } },
     ];
 
     const result = applyOverrides(baseRule, 'src/app/foo.ts', overrides);
 
     expect(result).not.toBeNull();
     expect(result!.level).toBe('error');
-    expect(result!.threshold).toBe(9);
+    expect(result!.borderline).toBe('error');
   });
 
   it('excludes file when override has matching ignores pattern', () => {

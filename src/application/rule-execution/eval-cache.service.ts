@@ -11,6 +11,7 @@ import {
   makeCacheKey,
 } from '../../infrastructure/cache/cache-store';
 import type { CodepolicyError } from '../../shared/errors';
+import type { RuleVerdict } from '../../shared/types';
 import { CODEPOLICY_VERSION } from '../../shared/version';
 
 export type CacheKeyInput = {
@@ -25,11 +26,6 @@ export type CacheKeyInput = {
   scopeName: string;
   filePath: string;
   fileTreeHash: string;
-};
-
-export type CachedScoreInput = {
-  score: number;
-  reason: string;
 };
 
 export const CacheDisabledToken = new InjectionToken<boolean>('CacheDisabled');
@@ -84,12 +80,13 @@ export class EvalCacheService {
     return promise;
   }
 
-  save(input: CacheKeyInput, score: CachedScoreInput): ResultAsync<void, CodepolicyError> {
+  save(input: CacheKeyInput, verdict: RuleVerdict): ResultAsync<void, CodepolicyError> {
     if (this.disabled) return okAsync<void, CodepolicyError>(undefined);
     const key = EvalCacheService.toCacheKey(input);
     const entry: CachedEntry = {
-      score: score.score,
-      reason: score.reason,
+      verdict: verdict.verdict,
+      reasoning: verdict.reasoning,
+      citations: verdict.citations,
       savedAt: new Date().toISOString(),
       codepolicyVersion: CODEPOLICY_VERSION,
     };

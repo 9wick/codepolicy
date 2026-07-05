@@ -8,6 +8,7 @@ import { expect, it } from 'vitest';
 
 import { createLlmHelper } from '../application/rule-execution/create-llm-helper';
 import { extractSignature } from '../application/rule-execution/ast-extract';
+import type { RuleVerdict } from '../shared/types';
 
 import type { RuleDefinition, ScopeContext } from './rule-types';
 
@@ -91,10 +92,7 @@ async function setupTestDir(testFiles: Record<string, string>): Promise<string> 
   return tmpDir;
 }
 
-async function runTestCase(
-  rule: RuleDefinition,
-  testCase: TestCase,
-): Promise<{ score: number; reason: string }> {
+async function runTestCase(rule: RuleDefinition, testCase: TestCase): Promise<RuleVerdict> {
   const workingDir = testCase.testFiles ? await setupTestDir(testCase.testFiles) : '.';
   const evaluatorResult = await rule.create(workingDir, testCase.options);
   if (evaluatorResult.isErr()) {
@@ -122,10 +120,11 @@ export function ruleTester(options: RuleTesterOptions): void {
     it(
       testCase.name,
       async () => {
-        const { score, reason } = await runTestCase(rule, testCase);
-        expect(score, `[valid] score=${score} reason=${reason}`).toBeGreaterThanOrEqual(
-          rule.meta.threshold,
-        );
+        const result = await runTestCase(rule, testCase);
+        expect(
+          result.verdict,
+          `[valid] verdict=${result.verdict} reasoning=${result.reasoning}`,
+        ).toBe('pass');
       },
       LLM_TEST_TIMEOUT,
     );
@@ -135,10 +134,11 @@ export function ruleTester(options: RuleTesterOptions): void {
     it(
       testCase.name,
       async () => {
-        const { score, reason } = await runTestCase(rule, testCase);
-        expect(score, `[invalid] score=${score} reason=${reason}`).toBeLessThan(
-          rule.meta.threshold,
-        );
+        const result = await runTestCase(rule, testCase);
+        expect(
+          result.verdict,
+          `[invalid] verdict=${result.verdict} reasoning=${result.reasoning}`,
+        ).toBe('violation');
       },
       LLM_TEST_TIMEOUT,
     );

@@ -10,7 +10,7 @@ import { codepolicyError } from '../shared/errors';
 import type { CodepolicyError } from '../shared/errors';
 import type { ResolvedRule, CodepolicyConfig } from '../shared/types';
 
-import { extractLevel, extractOptions, extractThreshold } from './rule-config-utils';
+import { extractBorderline, extractLevel, extractOptions } from './rule-config-utils';
 import type { RuleModule } from './rule-types';
 
 function computeRuleVersion(mod: RuleModule, options: Record<string, unknown> | undefined): string {
@@ -104,7 +104,7 @@ function resolveRule(
     id: mod.id,
     scope: mod.definition.meta.scope,
     agent: config.agent,
-    threshold: extractThreshold(ruleConfig) ?? mod.definition.meta.threshold,
+    borderline: extractBorderline(ruleConfig) ?? 'warn',
     level: extractLevel(ruleConfig),
     create: mod.definition.create,
     options,

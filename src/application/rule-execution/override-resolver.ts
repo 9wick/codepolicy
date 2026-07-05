@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { extractLevel, extractOptions, extractThreshold } from '../../rules/rule-config-utils';
+import { extractBorderline, extractLevel, extractOptions } from '../../rules/rule-config-utils';
 import type { OverrideEntry, ResolvedRule } from '../../shared/types';
 
 import { normalizeGlobPath } from './glob-path';
@@ -21,7 +21,7 @@ export function applyOverrides(
   overrides: OverrideEntry[],
 ): ResolvedRule | null {
   let level = baseRule.level;
-  let threshold = baseRule.threshold;
+  let borderline = baseRule.borderline;
   let options = baseRule.options;
 
   for (const override of overrides) {
@@ -31,9 +31,9 @@ export function applyOverrides(
     if (ruleConfig === undefined) continue;
 
     level = extractLevel(ruleConfig);
-    const overrideThreshold = extractThreshold(ruleConfig);
-    if (overrideThreshold !== undefined) {
-      threshold = overrideThreshold;
+    const overrideBorderline = extractBorderline(ruleConfig);
+    if (overrideBorderline !== undefined) {
+      borderline = overrideBorderline;
     }
     const overrideOptions = extractOptions(ruleConfig);
     if (overrideOptions !== undefined) {
@@ -43,5 +43,5 @@ export function applyOverrides(
 
   if (level === 'off') return null;
 
-  return { ...baseRule, level, threshold, options };
+  return { ...baseRule, level, borderline, options };
 }

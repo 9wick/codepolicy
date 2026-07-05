@@ -76,15 +76,20 @@ describe('EvalCacheService (with FileCacheStore)', () => {
   });
 
   it('save then lookup returns hit', async () => {
-    const saveResult = await service.save(baseInput, { score: 80, reason: 'ok' });
+    const saveResult = await service.save(baseInput, {
+      verdict: 'violation',
+      reasoning: 'ok',
+      citations: ['const x = 1;'],
+    });
     expect(saveResult.isOk()).toBe(true);
 
     const lookup = await service.lookup(baseInput);
     const outcome = lookup._unsafeUnwrap();
     expect(outcome.kind).toBe('hit');
     if (outcome.kind === 'hit') {
-      expect(outcome.entry.score).toBe(80);
-      expect(outcome.entry.reason).toBe('ok');
+      expect(outcome.entry.verdict).toBe('violation');
+      expect(outcome.entry.reasoning).toBe('ok');
+      expect(outcome.entry.citations).toEqual(['const x = 1;']);
     }
   });
 
@@ -152,7 +157,11 @@ describe('EvalCacheService (with FileCacheStore)', () => {
       const lookupBefore = await svc.lookup(baseInput);
       expect(lookupBefore._unsafeUnwrap().kind).toBe('miss');
 
-      const saveResult = await svc.save(baseInput, { score: 99, reason: 'should not persist' });
+      const saveResult = await svc.save(baseInput, {
+        verdict: 'pass',
+        reasoning: 'should not persist',
+        citations: [],
+      });
       expect(saveResult.isOk()).toBe(true);
 
       const lookupAfter = await svc.lookup(baseInput);

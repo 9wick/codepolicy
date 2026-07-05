@@ -1,14 +1,13 @@
 import { okAsync } from 'neverthrow';
 
-import { llmScoreSchema } from '../../shared/schema-definitions';
 import type { RuleDefinition } from '../rule-types';
 
 const definition: RuleDefinition = {
-  meta: { scope: 'function', threshold: 70 },
+  meta: { scope: 'function' },
   create: () =>
     okAsync((ctx) =>
-      ctx.llm.evaluate({
-        prompt: `以下の関数が「strict function boundary」の原則に違反していないかを検証してください。
+      ctx.llm.judge({
+        criteria: `以下の関数が「strict function boundary」の原則に違反していないかを検証してください。
 
 ## この rule が見たいこと
 - 関数が、契約として曖昧な入力/出力を受け入れたまま business/application decision を行っていないか
@@ -28,7 +27,7 @@ const definition: RuleDefinition = {
 - collection search や name extraction のような探索系 utility
 - 単なるデータ変換・補助関数で、business/application decision を担っていないもの
 
-## 高評価の条件
+## 違反ではない設計
 - business/application decision を担う関数の引数と返り値が、その責務に対して具体的で最小限である
 - 曖昧な状態を契約に持ち込まず、必要ならより外側で正規化・分岐済みである
 - application/domain の主要処理は、境界で確定済みの入力だけを受け取り、内部で optional 値の意味づけをしない
@@ -36,9 +35,23 @@ const definition: RuleDefinition = {
 ## 判定時の注意
 - 構文パターンだけでなく、関数の責務を見ること
 - 単に union 型や nullable があるだけでは違反にしないこと
-- 「探索結果の不在」と「契約の曖昧さ」を区別し、後者だけを減点すること`,
+- 「探索結果の不在」と「契約の曖昧さ」を区別し、後者だけを違反とすること
+
+## PASS すべき境界例
+\`\`\`typescript
+function extractDisplayName(input: string | undefined): string | undefined {
+  return input?.trim();
+}
+\`\`\`
+name extraction のような探索系 utility であり、business/application decision を担わないためPASSする
+
+\`\`\`typescript
+function findFirstMatch(items: string[], keyword: string): string | undefined {
+  return items.find((item) => item.includes(keyword));
+}
+\`\`\`
+collection search のような探索系 utility であり、契約の曖昧さを問われずPASSする`,
         include: { source: true, signature: true, filePath: true },
-        responseFormat: llmScoreSchema,
       }),
     ),
 };

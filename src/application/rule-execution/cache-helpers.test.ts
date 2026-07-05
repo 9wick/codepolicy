@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ResolvedRule, ScopeUnit } from '../../shared/types';
+import type { ResolvedRule, RuleVerdict, ScopeUnit } from '../../shared/types';
 
-import { buildCacheInput } from './cache-helpers';
+import { buildCacheInput, buildResultFromCache } from './cache-helpers';
 
 const baseScope: ScopeUnit = {
   filePath: 'src/foo.ts',
@@ -18,7 +18,7 @@ function makeRule(overrides: Partial<ResolvedRule>): ResolvedRule {
     id: 'rule-x',
     scope: 'function',
     agent: 'github-copilot/gpt-4.1',
-    threshold: 70,
+    borderline: 'warn',
     level: 'error',
     create: () => {
       throw new Error('not used in tests');
@@ -70,5 +70,33 @@ describe('buildCacheInput', () => {
     expect(a.scopeName).toBe(b.scopeName);
     // 全フィールドが完全一致 = cache key も一致 = cache hit
     expect(a).toStrictEqual(b);
+  });
+});
+
+describe('buildResultFromCache', () => {
+  it('carries verdict/reasoning/citations from the cached verdict into a LintResult', () => {
+    const rule = makeRule({});
+    const cachedVerdict: RuleVerdict = {
+      verdict: 'violation',
+      reasoning: 'キャッシュされた判定理由。',
+      citations: ['const x = 1;'],
+    };
+
+    const result = buildResultFromCache(baseScope, rule, cachedVerdict, 123);
+
+    expect(result.filePath).toBe(baseScope.filePath);
+    expect(result.scopeName).toBe(baseScope.name);
+    expect(result.rule).toBe(rule);
+    expect(result.verdict).toBe('violation');
+    expect(result.reasoning).toBe('キャッシュされた判定理由。');
+    expect(result.citations).toEqual(['const x = 1;']);
+    expect(result.durationMs).toBe(123);
+    expect(result.usage).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
+    });
   });
 });

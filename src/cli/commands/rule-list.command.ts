@@ -60,7 +60,7 @@ export default defineCommand({
 
     for (const rule of resolved) {
       const scope = Array.isArray(rule.scope) ? rule.scope.join('|') : rule.scope;
-      console.log(`  ${rule.id}  [${rule.level}]  scope=${scope}  threshold=${rule.threshold}`);
+      console.log(`  ${rule.id}  [${rule.level}]  scope=${scope}  borderline=${rule.borderline}`);
     }
   },
 });

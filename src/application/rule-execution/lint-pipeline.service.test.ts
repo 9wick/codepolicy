@@ -13,6 +13,7 @@ import type {
   ResolvedRule,
   ScopeUnit,
   CodepolicyConfig,
+  VerdictLabel,
 } from '../../shared/types';
 import type { RuleModule } from '../../rules/rule-types';
 import type { RuleCreateFn } from '../../rules/rule-types';
@@ -31,23 +32,26 @@ const defaultOptions: LintOptions = {
   noCache: undefined,
 };
 
-const makeCreateFn = (score = 90, reason = 'Good code'): RuleCreateFn => {
-  return () => okAsync(() => okAsync({ score, reason }));
+const makeCreateFn = (
+  verdict: VerdictLabel = 'pass',
+  reasoning = 'Good code',
+  citations: string[] = [],
+): RuleCreateFn => {
+  return () => okAsync(() => okAsync({ verdict, reasoning, citations }));
 };
 
 const makeResolvedRule = (
   id: string,
   scope: 'function' | 'test-case' | 'file' = 'function',
-  threshold = 70,
-  score = 90,
-  reason = 'Good code',
+  verdict: VerdictLabel = 'pass',
+  reasoning = 'Good code',
 ): ResolvedRule => ({
   id,
   scope,
   agent: 'claude',
-  threshold,
+  borderline: 'warn',
   level: 'error',
-  create: makeCreateFn(score, reason),
+  create: makeCreateFn(verdict, reasoning),
 });
 
 const makeConfig = (ruleIds: string[]): CodepolicyConfig => ({
@@ -73,7 +77,7 @@ const makeScope = (
 
 type EvalCacheLike = {
   lookup: (input: unknown) => ResultAsync<unknown, CodepolicyError>;
-  save: (input: unknown, score: unknown) => ResultAsync<void, CodepolicyError>;
+  save: (input: unknown, verdict: unknown) => ResultAsync<void, CodepolicyError>;
 };
 
 type MockDeps = {
@@ -140,7 +144,7 @@ describe('LintPipeline', () => {
   it('正常系: 全ルールパス（violation 0件）', async () => {
     const pipeline = createPipeline({
       ruleResolver: {
-        resolve: () => ok([makeResolvedRule('rule-a', 'function', 70, 90, 'Good code')]),
+        resolve: () => ok([makeResolvedRule('rule-a', 'function', 'pass', 'Good code')]),
       },
     });
 
@@ -149,9 +153,9 @@ describe('LintPipeline', () => {
 
     const { results } = result._unsafeUnwrap();
     expect(results).toHaveLength(1);
-    expect(results[0]!.passed).toBe(true);
-    expect(results[0]!.score).toBe(90);
-    expect(results[0]!.reason).toBe('Good code');
+    expect(results[0]!.verdict).toBe('pass');
+    expect(results[0]!.reasoning).toBe('Good code');
+    expect(results[0]!.citations).toEqual([]);
     expect(results[0]!.filePath).toBe('src/foo.ts');
     expect(results[0]!.scopeName).toBe('myFunction');
     expect(results[0]!.rule.id).toBe('rule-a');
@@ -165,10 +169,10 @@ describe('LintPipeline', () => {
     expect(typeof results[0]!.durationMs).toBe('number');
   });
 
-  it('正常系: violation あり（スコアがthreshold未満）', async () => {
+  it('正常系: violation あり', async () => {
     const pipeline = createPipeline({
       ruleResolver: {
-        resolve: () => ok([makeResolvedRule('rule-a', 'function', 70, 30, 'Too complex')]),
+        resolve: () => ok([makeResolvedRule('rule-a', 'function', 'violation', 'Too complex')]),
       },
     });
 
@@ -177,24 +181,23 @@ describe('LintPipeline', () => {
 
     const { results } = result._unsafeUnwrap();
     expect(results).toHaveLength(1);
-    expect(results[0]!.passed).toBe(false);
-    expect(results[0]!.score).toBe(30);
-    expect(results[0]!.reason).toBe('Too complex');
+    expect(results[0]!.verdict).toBe('violation');
+    expect(results[0]!.reasoning).toBe('Too complex');
   });
 
   it('ruleIdフィルタ: 指定したルールのみ実行される', async () => {
     const resolvedRules = [
-      makeResolvedRule('rule-a', 'function', 70, 80, 'OK'),
-      makeResolvedRule('rule-b', 'function', 70, 80, 'OK'),
+      makeResolvedRule('rule-a', 'function', 'pass', 'OK'),
+      makeResolvedRule('rule-b', 'function', 'pass', 'OK'),
     ];
     const scopes = [makeScope()];
 
     let createCallCount = 0;
     const trackedRuleB: ResolvedRule = {
-      ...makeResolvedRule('rule-b', 'function', 70, 80, 'OK'),
+      ...makeResolvedRule('rule-b', 'function', 'pass', 'OK'),
       create: () => {
         createCallCount++;
-        return okAsync(() => okAsync({ score: 80, reason: 'OK' }));
+        return okAsync(() => okAsync({ verdict: 'pass', reasoning: 'OK', citations: [] }));
       },
     };
 
@@ -254,7 +257,7 @@ describe('LintPipeline', () => {
     const externalRule = {
       id: 'plain-language',
       definition: {
-        meta: { scope: 'file' as const, threshold: 70 },
+        meta: { scope: 'file' as const },
         create: makeCreateFn(),
       },
     };
@@ -287,7 +290,7 @@ describe('LintPipeline', () => {
               id: target.id,
               scope: target.definition.meta.scope,
               agent: 'test-agent',
-              threshold: target.definition.meta.threshold,
+              borderline: 'warn' as const,
               level: 'error' as const,
               create: target.definition.create,
             },
@@ -377,8 +380,8 @@ describe('LintPipeline', () => {
     expect(ruleIds).not.toContain('fn-rule');
   });
 
-  it('threshold境界値: スコアとthresholdが等しい場合はpassedになる', async () => {
-    const resolvedRules = [makeResolvedRule('rule-a', 'function', 70, 70, 'Exactly at threshold')];
+  it('verdict=borderline: rule の判定がそのまま LintResult に反映される', async () => {
+    const resolvedRules = [makeResolvedRule('rule-a', 'function', 'borderline', 'Uncertain case')];
 
     const pipeline = createPipeline({
       ruleResolver: { resolve: () => ok(resolvedRules) },
@@ -388,8 +391,8 @@ describe('LintPipeline', () => {
     expect(result.isOk()).toBe(true);
 
     const { results } = result._unsafeUnwrap();
-    expect(results[0]!.passed).toBe(true);
-    expect(results[0]!.score).toBe(70);
+    expect(results[0]!.verdict).toBe('borderline');
+    expect(results[0]!.reasoning).toBe('Uncertain case');
   });
 
   // --- Override integration tests ---
@@ -400,7 +403,7 @@ describe('LintPipeline', () => {
 
     const pipeline = createPipeline({
       configLoader: { load: () => okAsync(config) },
-      ruleResolver: { resolve: () => ok([makeResolvedRule('rule-a', 'function', 70, 90)]) },
+      ruleResolver: { resolve: () => ok([makeResolvedRule('rule-a', 'function', 'pass')]) },
       scopeExtractor: {
         extract: () => okAsync([makeScope('testFn', 'function', 'src/foo.test.ts')]),
       },
@@ -411,16 +414,16 @@ describe('LintPipeline', () => {
     expect(result._unsafeUnwrap()).toEqual({ results: [], errors: [] });
   });
 
-  it('override: マッチするファイルの threshold が変更される', async () => {
+  it('override: マッチするファイルの borderline が変更される', async () => {
     const overrides: OverrideEntry[] = [
-      { files: ['**/*.test.ts'], rules: { 'rule-a': { level: 'error', threshold: 50 } } },
+      { files: ['**/*.test.ts'], rules: { 'rule-a': { level: 'error', borderline: 'off' } } },
     ];
     const config: CodepolicyConfig = { ...makeConfig(['rule-a']), overrides };
 
     const pipeline = createPipeline({
       configLoader: { load: () => okAsync(config) },
       ruleResolver: {
-        resolve: () => ok([makeResolvedRule('rule-a', 'function', 70, 60, 'Moderate')]),
+        resolve: () => ok([makeResolvedRule('rule-a', 'function', 'borderline', 'Moderate')]),
       },
       scopeExtractor: {
         extract: () => okAsync([makeScope('testFn', 'function', 'src/foo.test.ts')]),
@@ -432,9 +435,8 @@ describe('LintPipeline', () => {
 
     const { results } = result._unsafeUnwrap();
     expect(results).toHaveLength(1);
-    // score=60 >= overridden threshold=50 → passed
-    expect(results[0]!.passed).toBe(true);
-    expect(results[0]!.rule.threshold).toBe(50);
+    expect(results[0]!.verdict).toBe('borderline');
+    expect(results[0]!.rule.borderline).toBe('off');
   });
 
   it('override: マッチしないファイルにはベース設定が適用される', async () => {
@@ -443,7 +445,7 @@ describe('LintPipeline', () => {
 
     const pipeline = createPipeline({
       configLoader: { load: () => okAsync(config) },
-      ruleResolver: { resolve: () => ok([makeResolvedRule('rule-a', 'function', 70, 90)]) },
+      ruleResolver: { resolve: () => ok([makeResolvedRule('rule-a', 'function', 'pass')]) },
       scopeExtractor: {
         extract: () => okAsync([makeScope('prodFn', 'function', 'src/foo.ts')]),
       },
@@ -455,7 +457,7 @@ describe('LintPipeline', () => {
     const { results } = result._unsafeUnwrap();
     expect(results).toHaveLength(1);
     expect(results[0]!.rule.id).toBe('rule-a');
-    expect(results[0]!.passed).toBe(true);
+    expect(results[0]!.verdict).toBe('pass');
   });
 
   // --- base option tests ---
@@ -584,7 +586,7 @@ describe('LintPipeline', () => {
     const config: CodepolicyConfig = { ...makeConfig(['rule-a']), overrides };
 
     const offRule: ResolvedRule = {
-      ...makeResolvedRule('rule-a', 'function', 70, 85, 'Good'),
+      ...makeResolvedRule('rule-a', 'function', 'pass', 'Good'),
       level: 'off',
     };
 
@@ -603,18 +605,18 @@ describe('LintPipeline', () => {
     expect(results).toHaveLength(1);
     expect(results[0]!.rule.id).toBe('rule-a');
     expect(results[0]!.rule.level).toBe('error');
-    expect(results[0]!.passed).toBe(true);
+    expect(results[0]!.verdict).toBe('pass');
   });
 
   it('エラー耐性: 1つの evaluator がエラーでも他の評価は継続する', async () => {
     const failingCreateFn: RuleCreateFn = () =>
       okAsync(() => errAsync(new Error('LLM API timeout')));
     const successCreateFn: RuleCreateFn = () =>
-      okAsync(() => okAsync({ score: 85, reason: 'Good' }));
+      okAsync(() => okAsync({ verdict: 'pass', reasoning: 'Good', citations: [] }));
 
     const resolvedRules: ResolvedRule[] = [
-      { ...makeResolvedRule('rule-fail', 'function', 70), create: failingCreateFn },
-      { ...makeResolvedRule('rule-ok', 'function', 70), create: successCreateFn },
+      { ...makeResolvedRule('rule-fail', 'function'), create: failingCreateFn },
+      { ...makeResolvedRule('rule-ok', 'function'), create: successCreateFn },
     ];
 
     const pipeline = createPipeline({
@@ -628,7 +630,7 @@ describe('LintPipeline', () => {
     const output: LintOutput = result._unsafeUnwrap();
     expect(output.results).toHaveLength(1);
     expect(output.results[0]!.rule.id).toBe('rule-ok');
-    expect(output.results[0]!.passed).toBe(true);
+    expect(output.results[0]!.verdict).toBe('pass');
 
     expect(output.errors).toHaveLength(1);
     expect(output.errors[0]!.rule.id).toBe('rule-fail');
@@ -647,7 +649,7 @@ describe('LintPipeline cache integration', () => {
       create: () =>
         okAsync((ctx) => {
           order.push(`a:${ctx.name}`);
-          return okAsync({ score: 90, reason: 'ok' });
+          return okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] });
         }),
     };
     const trackedB: ResolvedRule = {
@@ -656,7 +658,7 @@ describe('LintPipeline cache integration', () => {
       create: () =>
         okAsync((ctx) => {
           order.push(`b:${ctx.name}`);
-          return okAsync({ score: 90, reason: 'ok' });
+          return okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] });
         }),
     };
     const scopes = [
@@ -675,7 +677,7 @@ describe('LintPipeline cache integration', () => {
     expect(order).toEqual(['a:foo', 'b:foo', 'a:bar', 'b:bar']);
   });
 
-  it('cache hit: skips evaluator and returns cached score', async () => {
+  it('cache hit: skips evaluator and returns cached verdict', async () => {
     let evaluatorCalls = 0;
     const trackedRule: ResolvedRule = {
       ...makeResolvedRule('cached-rule'),
@@ -683,7 +685,7 @@ describe('LintPipeline cache integration', () => {
       create: () => {
         return okAsync(() => {
           evaluatorCalls++;
-          return okAsync({ score: 90, reason: 'fresh' });
+          return okAsync({ verdict: 'pass', reasoning: 'fresh', citations: [] });
         });
       },
     };
@@ -693,8 +695,9 @@ describe('LintPipeline cache integration', () => {
         okAsync({
           kind: 'hit',
           entry: {
-            score: 77,
-            reason: 'from-cache',
+            verdict: 'violation',
+            reasoning: 'from-cache',
+            citations: ['const x = 1;'],
             savedAt: '2026-01-01T00:00:00Z',
             codepolicyVersion: '0.0.1',
           },
@@ -711,9 +714,9 @@ describe('LintPipeline cache integration', () => {
     expect(result.isOk()).toBe(true);
     const { results } = result._unsafeUnwrap();
     expect(results).toHaveLength(1);
-    expect(results[0]!.score).toBe(77);
-    expect(results[0]!.reason).toBe('from-cache');
-    expect(results[0]!.passed).toBe(true);
+    expect(results[0]!.verdict).toBe('violation');
+    expect(results[0]!.reasoning).toBe('from-cache');
+    expect(results[0]!.citations).toEqual(['const x = 1;']);
     expect(evaluatorCalls).toBe(0);
   });
 
@@ -722,7 +725,8 @@ describe('LintPipeline cache integration', () => {
     const trackedRule: ResolvedRule = {
       ...makeResolvedRule('miss-rule'),
       ruleVersion: 'v2',
-      create: () => okAsync(() => okAsync({ score: 88, reason: 'evaluated' })),
+      create: () =>
+        okAsync(() => okAsync({ verdict: 'pass', reasoning: 'evaluated', citations: [] })),
     };
 
     const cache: EvalCacheLike = {
@@ -741,8 +745,8 @@ describe('LintPipeline cache integration', () => {
     const result = await pipeline.run(defaultOptions);
     expect(result.isOk()).toBe(true);
     const { results } = result._unsafeUnwrap();
-    expect(results[0]!.score).toBe(88);
-    expect(results[0]!.reason).toBe('evaluated');
+    expect(results[0]!.verdict).toBe('pass');
+    expect(results[0]!.reasoning).toBe('evaluated');
     expect(saveCalls).toBe(1);
   });
 
@@ -753,7 +757,8 @@ describe('LintPipeline cache integration', () => {
       ...makeResolvedRule('uncached-rule'),
       ruleVersion: 'v3',
       cacheable: false,
-      create: () => okAsync(() => okAsync({ score: 95, reason: 'fresh-only' })),
+      create: () =>
+        okAsync(() => okAsync({ verdict: 'pass', reasoning: 'fresh-only', citations: [] })),
     };
 
     const cache: EvalCacheLike = {
@@ -774,7 +779,7 @@ describe('LintPipeline cache integration', () => {
 
     const result = await pipeline.run(defaultOptions);
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap().results[0]!.score).toBe(95);
+    expect(result._unsafeUnwrap().results[0]!.reasoning).toBe('fresh-only');
     expect(lookupCalls).toBe(0);
     expect(saveCalls).toBe(0);
   });
@@ -785,7 +790,7 @@ describe('LintPipeline cache integration', () => {
     const rule: ResolvedRule = {
       ...makeResolvedRule('cacheable-rule'),
       ruleVersion: 'v9',
-      create: () => okAsync(() => okAsync({ score: 80, reason: 'fresh' })),
+      create: () => okAsync(() => okAsync({ verdict: 'pass', reasoning: 'fresh', citations: [] })),
     };
 
     const cache: EvalCacheLike = {
@@ -806,7 +811,7 @@ describe('LintPipeline cache integration', () => {
 
     const result = await pipeline.run({ ...defaultOptions, noCache: true });
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap().results[0]!.score).toBe(80);
+    expect(result._unsafeUnwrap().results[0]!.reasoning).toBe('fresh');
     expect(lookupCalls).toBe(0);
     expect(saveCalls).toBe(0);
   });
@@ -819,10 +824,12 @@ describe('LintPipeline cache integration', () => {
       create: () =>
         okAsync(() => {
           evaluatorCalls++;
-          return okAsync({ score: 85, reason: 'recovered' });
+          return okAsync({ verdict: 'pass', reasoning: 'recovered', citations: [] });
         }),
     };
 
+    // 旧キャッシュ形式 {score, reason} は新スキーマで corrupted 扱いになる。
+    // corrupted → 再評価というフォールバック経路をここで検証する。
     const cache: EvalCacheLike = {
       lookup: () => okAsync({ kind: 'corrupted', cause: new Error('invalid JSON') }),
       save: () => okAsync(undefined),
@@ -835,7 +842,7 @@ describe('LintPipeline cache integration', () => {
 
     const result = await pipeline.run(defaultOptions);
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap().results[0]!.score).toBe(85);
+    expect(result._unsafeUnwrap().results[0]!.reasoning).toBe('recovered');
     expect(evaluatorCalls).toBe(1);
   });
 });

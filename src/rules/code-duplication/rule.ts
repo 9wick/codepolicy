@@ -2,6 +2,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 import { Type } from '@sinclair/typebox';
+import type { Static } from '@sinclair/typebox';
 import { ResultAsync, okAsync } from 'neverthrow';
 import Parser from 'tree-sitter';
 import TypeScript from 'tree-sitter-typescript';
@@ -12,9 +13,24 @@ import {
   type ScopeFingerprint,
 } from '../../application/rule-execution/ast-fingerprint';
 import { shouldSkipEntry } from '../../application/rule-execution/fs-walk';
-import { llmScoreSchema } from '../../shared/schema-definitions';
-import type { LlmScore } from '../../shared/types';
+import type { RuleVerdict } from '../../shared/types';
 import type { RuleContext, RuleDefinition } from '../rule-types';
+
+// --- Comparison result schema ---
+// フィールド順 = 推論順（reasoning → result）。判定理由を先に言語化させてから結論を出させる。
+const comparisonResultSchema = Type.Object(
+  {
+    reasoning: Type.String({ minLength: 1, description: '判定根拠' }),
+    result: Type.Union([
+      Type.Literal('duplicate'),
+      Type.Literal('not-duplicate'),
+      Type.Literal('uncertain'),
+    ]),
+  },
+  { additionalProperties: false },
+);
+
+type ComparisonResult = Static<typeof comparisonResultSchema>;
 
 // --- Options ---
 
@@ -142,11 +158,17 @@ function buildComparisonPrompt(
 ${sourceA}
 
 ## コード B: ${nameB} (${filePathB})
-${sourceB}
+${sourceB}`;
+}
 
-## 出力
-- score: 統合不要なら100、統合すべきなら0
-- reason: 判定根拠`;
+function mapComparisonToVerdict(comparison: ComparisonResult, citation: string): RuleVerdict {
+  if (comparison.result === 'duplicate') {
+    return { verdict: 'violation', reasoning: comparison.reasoning, citations: [citation] };
+  }
+  if (comparison.result === 'uncertain') {
+    return { verdict: 'borderline', reasoning: comparison.reasoning, citations: [citation] };
+  }
+  return { verdict: 'pass', reasoning: comparison.reasoning, citations: [] };
 }
 
 // --- Fingerprint collection ---
@@ -186,8 +208,19 @@ function collectAllFingerprints(
 
 // --- Rule definition ---
 
+const NO_FINGERPRINT_VERDICT: RuleVerdict = {
+  verdict: 'pass',
+  reasoning: '指紋未検出',
+  citations: [],
+};
+const NO_SIMILAR_CODE_VERDICT: RuleVerdict = {
+  verdict: 'pass',
+  reasoning: '類似コード未検出',
+  citations: [],
+};
+
 const definition: RuleDefinition = {
-  meta: { scope: 'function', threshold: 70 },
+  meta: { scope: 'function' },
   optionsSchema,
   create: (workingDir, options?) => {
     const rawDirs = options?.['dirs'];
@@ -202,35 +235,34 @@ const definition: RuleDefinition = {
 
     return collectAllFingerprints(scanDirs, parser, workingDir).map(
       (allFingerprints) =>
-        (ctx: RuleContext): ResultAsync<LlmScore, Error> => {
+        (ctx: RuleContext): ResultAsync<RuleVerdict, Error> => {
           const targetFp = allFingerprints.find(
             (fp) => fp.scope.filePath === ctx.filePath && fp.scope.startLine === ctx.startLine,
           );
           if (!targetFp) {
-            return okAsync({ score: 100, reason: '指紋未検出' });
+            return okAsync(NO_FINGERPRINT_VERDICT);
           }
 
           const candidates = findSimilarScopes(targetFp, allFingerprints, threshold);
-          if (candidates.length === 0) {
-            return okAsync({ score: 100, reason: '類似コード未検出' });
-          }
-
           const top = candidates[0];
           if (!top) {
-            return okAsync({ score: 100, reason: '類似コード未検出' });
+            return okAsync(NO_SIMILAR_CODE_VERDICT);
           }
 
-          return ctx.llm.evaluate({
-            prompt: buildComparisonPrompt(
-              ctx.source,
-              top.scope.code,
-              ctx.name,
-              top.scope.name,
-              ctx.filePath,
-              top.scope.filePath,
-            ),
-            responseFormat: llmScoreSchema,
-          });
+          const citation = `${top.scope.filePath}:${top.scope.name}`;
+          return ctx.llm
+            .evaluate({
+              prompt: buildComparisonPrompt(
+                ctx.source,
+                top.scope.code,
+                ctx.name,
+                top.scope.name,
+                ctx.filePath,
+                top.scope.filePath,
+              ),
+              responseFormat: comparisonResultSchema,
+            })
+            .map((comparison) => mapComparisonToVerdict(comparison, citation));
         },
     );
   },

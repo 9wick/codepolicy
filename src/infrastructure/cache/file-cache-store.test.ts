@@ -10,8 +10,9 @@ import { createFileCacheStore } from './file-cache-store';
 const asKey = makeCacheKey;
 
 const sampleEntry: CachedEntry = {
-  score: 87,
-  reason: 'looks fine',
+  verdict: 'pass',
+  reasoning: 'looks fine',
+  citations: [],
   savedAt: '2026-04-19T00:00:00.000Z',
   codepolicyVersion: '0.0.0-test',
 };
@@ -63,6 +64,28 @@ describe('FileCacheStore', () => {
     expect(outcome.kind).toBe('corrupted');
   });
 
+  it('returns corrupted for a legacy score/reason entry (pre-verdict cache format)', async () => {
+    // 旧フォーマット {score, reason} は additionalProperties:false + 必須 verdict/citations 欠如で
+    // 必ず schema 不一致になる。旧キャッシュは corrupted → 再評価という移行経路の検証。
+    const store = createFileCacheStore(cacheRoot);
+    const key = asKey('f'.repeat(64));
+    const filePath = path.join(cacheRoot, `${key.raw}.json`);
+    await fs.mkdir(cacheRoot, { recursive: true });
+    await fs.writeFile(
+      filePath,
+      JSON.stringify({
+        score: 80,
+        reason: 'legacy entry',
+        savedAt: '2026-01-01T00:00:00.000Z',
+        codepolicyVersion: '0.0.0-legacy',
+      }),
+    );
+
+    const lookup = await store.lookup(key);
+    expect(lookup.isOk()).toBe(true);
+    expect(lookup._unsafeUnwrap().kind).toBe('corrupted');
+  });
+
   it('creates cache directory on first save', async () => {
     const nested = path.join(cacheRoot, 'deeply', 'nested');
     const store = createFileCacheStore(nested);
@@ -84,7 +107,7 @@ describe('FileCacheStore', () => {
 
     const variants: CachedEntry[] = Array.from({ length: 10 }, (_, i) => ({
       ...sampleEntry,
-      score: i,
+      citations: [String(i)],
     }));
 
     const results = await Promise.all(variants.map((entry) => store.save(key, entry)));

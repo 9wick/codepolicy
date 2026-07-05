@@ -17,14 +17,10 @@ import { getAppContainer } from '../../shared/container';
 import type { CodepolicyError } from '../../shared/errors';
 import { formatErrorCauseChain, codepolicyError } from '../../shared/errors';
 import { LogContextStore, LogLevelToken } from '../../shared/logger';
-import type { ModelReasoningEffort, RuleConfig, RuleLevel } from '../../shared/types';
+import type { ModelReasoningEffort, RuleConfig, RuleLevel, RuleVerdict } from '../../shared/types';
 
 function extractLevel(ruleConfig: RuleConfig): RuleLevel {
   return typeof ruleConfig === 'string' ? ruleConfig : ruleConfig.level;
-}
-
-function extractThreshold(ruleConfig: RuleConfig): number | undefined {
-  return typeof ruleConfig === 'object' ? ruleConfig.threshold : undefined;
 }
 
 async function unwrap<T>(result: ResultAsync<T, CodepolicyError>): Promise<T | null> {
@@ -110,12 +106,13 @@ function buildScopeContext(
   };
 }
 
-function printResult(ruleId: string, score: number, threshold: number, reason: string): void {
-  const passed = score >= threshold;
+function printResult(ruleId: string, verdict: RuleVerdict): void {
   console.log(`Rule: ${ruleId}`);
-  console.log(`Score: ${score} (threshold: ${threshold})`);
-  console.log(`Result: ${passed ? 'PASS' : 'FAIL'}`);
-  console.log(`Reason: ${reason}`);
+  console.log(`Verdict: ${verdict.verdict}`);
+  console.log(`Reasoning: ${verdict.reasoning}`);
+  console.log(
+    `Citations: ${verdict.citations.length > 0 ? verdict.citations.join(', ') : '(none)'}`,
+  );
 }
 
 type RunRuleArgs = {
@@ -162,8 +159,7 @@ async function evaluateRule(a: RunRuleArgs): Promise<void> {
     return;
   }
 
-  const threshold = extractThreshold(a.ruleConfig) ?? a.ruleModule.definition.meta.threshold;
-  printResult(a.ruleModule.id, result.value.score, threshold, result.value.reason);
+  printResult(a.ruleModule.id, result.value);
 }
 
 export default defineCommand({

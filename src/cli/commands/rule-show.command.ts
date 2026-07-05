@@ -25,7 +25,6 @@ export default defineCommand({
     const { meta } = ruleModule.definition;
     const scope = Array.isArray(meta.scope) ? meta.scope.join('|') : meta.scope;
     console.log(`Rule: ${ruleModule.id}`);
-    console.log(`  scope:     ${scope}`);
-    console.log(`  threshold: ${meta.threshold}`);
+    console.log(`  scope: ${scope}`);
   },
 });
