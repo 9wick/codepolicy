@@ -112,6 +112,18 @@ See [docs/rules.md](docs/rules.md) for detailed descriptions with pass/fail exam
 
 ## LLM Providers
 
+### Experimental Jev PoC
+
+Jev向けに `jev-no-implicit-fallback`、`jev-strict-function-boundary`、`jev-no-invalid-state-type`、`jev-ssot-placement`、`jev-no-nonstandard-code` を追加しています。既存ルールは変更せず、数値判定専用の別ルールとして試します。`TYPESAFE_API_KEY` が必要です。
+
+```bash
+bun run dev rule run jev-no-implicit-fallback samples/jev/fallback.ts --config .codepolicy.jev.yml
+```
+
+出力は指摘された観点と値のみ。説明文の生成・コード引用は行いません。全観点は `--verbose` のデバッグ出力で確認できます。設定書式は既存と同じで、Jev専用optionsはありません。使い方・制約・50ケースの比較測定は [Jev PoCの測定方法](docs/benchmark/README.md) を参照してください。
+
+### Text-generation providers
+
 The model is auto-detected from the name:
 
 | Pattern | Provider | Requirements |

@@ -28,6 +28,8 @@
     "build": "bun run schema:generate && tsdown",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:infra": "vitest run --config vitest.infra.config.ts",
+    "test:rules": "vitest run --config vitest.rules.config.ts",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "oxlint . && eslint --cache .",
@@ -35,8 +37,10 @@
     "typecheck": "tsc --noEmit",
     "codepolicy": "env -u CLAUDECODE bun run src/cli/entry.ts --config=.codepolicy.self.yml",
     "benchmark": "bash tools/benchmark.sh",
+    "benchmark:jev": "bun run src/cli/jev-benchmark.ts",
+    "prepush": "bun run precommit",
     "precommit": "bun run format:check && bun run typecheck && bun run lint && bun run build && bun run test && npx precommit-verify save",
-    "prepublishOnly": "bun run build && bun run test --exclude='src/rules/*/rule.test.ts'"
+    "prepublishOnly": "bun run build && bun run test"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.71",
@@ -46,6 +50,7 @@
     "@opencode-ai/sdk": "^1.2.24",
     "@oxc-project/runtime": "^0.116.0",
     "@sinclair/typebox": "^0.34.41",
+    "@typesafe-ai/sdk": "0.6.0",
     "ajv": "^8.17.1",
     "citty": "^0.2.1",
     "js-yaml": "^4.1.1",

@@ -11,6 +11,7 @@ import type {
   LintOutput,
   OverrideEntry,
   ResolvedRule,
+  ResolvedTextRule,
   ScopeUnit,
   CodepolicyConfig,
   VerdictLabel,
@@ -45,7 +46,7 @@ const makeResolvedRule = (
   scope: 'function' | 'test-case' | 'file' = 'function',
   verdict: VerdictLabel = 'pass',
   reasoning = 'Good code',
-): ResolvedRule => ({
+): ResolvedTextRule => ({
   id,
   scope,
   agent: 'claude',

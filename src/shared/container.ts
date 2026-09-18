@@ -6,6 +6,7 @@ import { WorkingDir } from '../application/config/config-loader.service';
 import { CacheDisabledToken } from '../application/rule-execution/eval-cache.service';
 import { CacheStoreToken } from '../infrastructure/cache/cache-store';
 import { createFileCacheStore } from '../infrastructure/cache/file-cache-store';
+import { CreateDecisionClient, createTypeSafeClient } from '../infrastructure/llm/typesafe-client';
 
 import { LifecycleManager } from './lifecycle-manager';
 import {
@@ -27,6 +28,7 @@ export const getAppContainer = (): Container => {
 
   const workingDir = process.cwd();
   appContainer.bind({ provide: WorkingDir, useValue: workingDir });
+  appContainer.bind({ provide: CreateDecisionClient, useValue: () => createTypeSafeClient() });
 
   appContainer.bind({
     provide: CacheStoreToken,

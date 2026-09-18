@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ResolvedRule, RuleVerdict, ScopeUnit } from '../../shared/types';
+import type { ResolvedTextRule, RuleVerdict, ScopeUnit } from '../../shared/types';
 
 import { buildCacheInput, buildResultFromCache } from './cache-helpers';
 
@@ -13,7 +13,7 @@ const baseScope: ScopeUnit = {
   endLine: 1,
 };
 
-function makeRule(overrides: Partial<ResolvedRule>): ResolvedRule {
+function makeRule(overrides: Partial<ResolvedTextRule>): ResolvedTextRule {
   return {
     id: 'rule-x',
     scope: 'function',

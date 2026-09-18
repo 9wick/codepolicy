@@ -1,0 +1,17 @@
+# Experimental Jev-only configuration. Existing configs and rules are unchanged.
+# Requires TYPESAFE_API_KEY. filter=all sends matching source scopes to TypeSafe.
+agent: typesafe-jev-1.13.0
+filter: all
+concurrency: 1
+rules:
+  jev-no-implicit-fallback: { level: error, borderline: warn }
+  jev-strict-function-boundary: { level: error, borderline: warn }
+  jev-no-invalid-state-type: { level: error, borderline: warn }
+  jev-ssot-placement: { level: error, borderline: warn }
+  jev-no-nonstandard-code: { level: error, borderline: warn }
+ignore:
+  - node_modules/**
+  - dist/**
+  - '**/*.test.ts'
+  - src/test-support/**
+  - tools/**

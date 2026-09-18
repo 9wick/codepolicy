@@ -8,16 +8,25 @@ import { ConfigLoader } from '../../application/config/config-loader.service';
 import { WorkingDir } from '../../application/config/config-loader.service';
 import { resolveConfigDir } from '../../application/config/config-path';
 import { createLlmHelper } from '../../application/rule-execution/create-llm-helper';
+import { toDisplayVerdict } from '../../application/rule-execution/decision-judge';
+import {
+  validateRuleModel,
+  validateDecisionOptions,
+} from '../../application/rule-execution/execution-compatibility';
+import { runDecisionFile } from '../../application/rule-execution/run-decision';
 import { parseModelReasoningEffort } from '../../infrastructure/llm/model-reasoning-effort';
 import { ExternalRuleLoader } from '../../rules/external-rule-loader.service';
 import { loadRuleModules } from '../../rules/load-rule-modules';
 import { extractOptions } from '../../rules/rule-config-utils';
-import type { RuleModule, ScopeContext } from '../../rules/rule-types';
+import type { ScopeContext } from '../../rules/rule-types';
+import type { RegisteredRule, DecisionRuleModule } from '../../rules/decision-rule-types';
 import { getAppContainer } from '../../shared/container';
 import type { CodepolicyError } from '../../shared/errors';
 import { formatErrorCauseChain, codepolicyError } from '../../shared/errors';
 import { LogContextStore, LogLevelToken } from '../../shared/logger';
 import type { ModelReasoningEffort, RuleConfig, RuleLevel, RuleVerdict } from '../../shared/types';
+
+import { formatRuleResult } from './rule-result';
 
 function extractLevel(ruleConfig: RuleConfig): RuleLevel {
   return typeof ruleConfig === 'string' ? ruleConfig : ruleConfig.level;
@@ -49,7 +58,9 @@ function printError(code: string, message: string): void {
   console.error(`Error [${code}]: ${message}`);
 }
 
-function pickScope(scope: RuleModule['definition']['meta']['scope']): ScopeContext['scopeType'] {
+function pickScope(
+  scope: RegisteredRule['definition']['meta']['scope'],
+): ScopeContext['scopeType'] {
   if (Array.isArray(scope)) {
     const first = scope[0];
     if (!first) {
@@ -66,7 +77,7 @@ async function loadRuleModuleForRun(
   workingDir: string,
   configPath: string | undefined,
   ruleId: string,
-): Promise<{ ruleModule: RuleModule; ruleConfig: RuleConfig; configAgent: string } | null> {
+): Promise<{ ruleModule: RegisteredRule; ruleConfig: RuleConfig; configAgent: string } | null> {
   const config = await unwrap(configLoader.load(configPath));
   if (!config) return null;
   const ruleModules = await unwrap(
@@ -94,7 +105,7 @@ async function loadRuleModuleForRun(
 function buildScopeContext(
   sourceCode: string,
   filePath: string,
-  ruleModule: RuleModule,
+  ruleModule: RegisteredRule,
 ): ScopeContext {
   return {
     source: sourceCode,
@@ -107,16 +118,11 @@ function buildScopeContext(
 }
 
 function printResult(ruleId: string, verdict: RuleVerdict): void {
-  console.log(`Rule: ${ruleId}`);
-  console.log(`Verdict: ${verdict.verdict}`);
-  console.log(`Reasoning: ${verdict.reasoning}`);
-  console.log(
-    `Citations: ${verdict.citations.length > 0 ? verdict.citations.join(', ') : '(none)'}`,
-  );
+  console.log(formatRuleResult(ruleId, verdict, 'text'));
 }
 
 type RunRuleArgs = {
-  ruleModule: RuleModule;
+  ruleModule: RegisteredRule;
   ruleConfig: RuleConfig;
   filePath: string;
   agentOverride: string | undefined;
@@ -127,10 +133,39 @@ type RunRuleArgs = {
 };
 
 async function evaluateRule(a: RunRuleArgs): Promise<void> {
+  const validation = validateRuleModel(
+    a.ruleModule.id,
+    a.ruleModule.kind ?? 'text',
+    a.agentOverride ?? a.configAgent,
+    a.reasoningEffort,
+  ).andThen(() =>
+    validateDecisionOptions(
+      a.ruleModule.id,
+      a.ruleModule.kind ?? 'text',
+      extractOptions(a.ruleConfig),
+    ),
+  );
+  if (validation.isErr()) {
+    printError(validation.error.code, validation.error.message);
+    process.exitCode = 1;
+    return;
+  }
   const sourceCode = await unwrap(readSourceFile(a.filePath));
-  if (!sourceCode) return;
+  if (sourceCode === null) return;
 
   const scopeCtx = buildScopeContext(sourceCode, a.filePath, a.ruleModule);
+  if (a.ruleModule.kind === 'decision') {
+    await evaluateDecisionFile(a, a.ruleModule, scopeCtx);
+    return;
+  }
+  await evaluateTextFile(a, a.ruleModule, scopeCtx);
+}
+
+async function evaluateTextFile(
+  a: RunRuleArgs,
+  ruleModule: Exclude<RegisteredRule, DecisionRuleModule>,
+  scopeCtx: ScopeContext,
+): Promise<void> {
   const helper = createLlmHelper(
     scopeCtx,
     a.agentOverride ?? a.configAgent,
@@ -139,10 +174,7 @@ async function evaluateRule(a: RunRuleArgs): Promise<void> {
   );
   const ctx = { ...scopeCtx, llm: helper };
 
-  const initResult = await a.ruleModule.definition.create(
-    a.workingDir,
-    extractOptions(a.ruleConfig),
-  );
+  const initResult = await ruleModule.definition.create(a.workingDir, extractOptions(a.ruleConfig));
   if (initResult.isErr()) {
     printLlmError(initResult.error);
     process.exitCode = 1;
@@ -160,6 +192,29 @@ async function evaluateRule(a: RunRuleArgs): Promise<void> {
   }
 
   printResult(a.ruleModule.id, result.value);
+}
+
+async function evaluateDecisionFile(
+  a: RunRuleArgs,
+  ruleModule: DecisionRuleModule,
+  scopeCtx: ScopeContext,
+): Promise<void> {
+  const result = await a.logContextStore.run(
+    { rule: ruleModule.id, scope: path.basename(a.filePath) },
+    () =>
+      runDecisionFile(
+        scopeCtx,
+        ruleModule.definition,
+        a.agentOverride ?? a.configAgent,
+        a.workingDir,
+      ),
+  );
+  if (result.isErr()) {
+    printLlmError(result.error);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(formatRuleResult(ruleModule.id, toDisplayVerdict(result.value.result), 'decision'));
 }
 
 export default defineCommand({

@@ -1,4 +1,5 @@
 export type CodepolicyErrorCode =
+  | 'INVALID_ARGUMENT'
   | 'CONFIG_NOT_FOUND'
   | 'CONFIG_PARSE_ERROR'
   | 'RULE_NOT_FOUND'

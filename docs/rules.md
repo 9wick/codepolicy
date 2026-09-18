@@ -2,6 +2,22 @@
 
 codepolicy に組み込まれているルールの一覧です。
 
+## 実験用Jevルール（PoC）
+
+既存ルールとは別ID。`typesafe-jev` / `typesafe-jev-latest` / `typesafe-jev-<x.y.z>` 専用で、既存の文章生成モデルとは組み合わせられない。`level`・`borderline`・`overrides`の意味は変更なし。専用optionsはない。
+
+| 新規ルール | Scope | 判定範囲 |
+|---|---|---|
+| jev-no-implicit-fallback | function | 不足入力の補完、失敗の成功値化、段階的な代替値の使用 |
+| jev-strict-function-boundary | function | 未確定な業務入力、曖昧な成功結果、前提分岐、主要処理内の正規化 |
+| jev-no-invalid-state-type | type / interface | 必須値欠損、状態矛盾、値の混同、検証前後の混在 |
+| jev-ssot-placement | exported-function | パス／layerと責務の不一致。兄弟関数との凝集度は対象外 |
+| jev-no-nonstandard-code | function | 動的実行、意図を隠す変換、形状破壊、不要に複雑な制御 |
+
+各観点は違反命題に対するNoul値。0.7以上がviolation、0.3以下がpass、その間がborderline。1観点でもviolationなら全体violation、全観点passならpass、それ以外はborderline。閾値はPoCの固定値であり、正解率の保証ではない。
+
+通常出力では合成判定に該当する指摘だけを定義順に表示する。値は丸めない。Jevには引用機能がないため`rule run`にもCitations行を表示しない。Jevルールは常に結果キャッシュ無効、`--reasoning-effort`は実行前エラー。詳細は [比較測定](benchmark/README.md)。
+
 ## 概要
 
 | Rule | Scope | Threshold | 概要 |

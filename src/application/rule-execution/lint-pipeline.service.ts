@@ -19,6 +19,7 @@ import type {
   ModelReasoningEffort,
   OverrideEntry,
   ResolvedRule,
+  ResolvedDecisionRule,
   RuleScope,
   RuleVerdict,
   ScopeUnit,
@@ -36,6 +37,9 @@ import { generateFileTree } from './file-tree.lib';
 import { applyOverrides } from './override-resolver';
 import { ScopeExtractor } from './scope-extractor.service';
 import { loadAllFiles } from './target-files.lib';
+import { validateExecution } from './execution-compatibility';
+import { runDecision } from './run-decision';
+import { toDisplayVerdict } from './decision-judge';
 
 // CLI から受け取る生の入力。すべて optional で「未指定」を表す。
 export type LintOptions = {
@@ -144,6 +148,8 @@ export class LintPipeline {
       if (effectiveRules.length === 0) {
         return ok<LintOutput, CodepolicyError>({ results: [], errors: [] });
       }
+      const validation = validateExecution(effectiveRules, settings.reasoningEffort ?? undefined);
+      if (validation.isErr()) return errAsync<LintOutput, CodepolicyError>(validation.error);
       return this.extractAndEvaluate(config, effectiveRules, settings);
     });
   }
@@ -240,6 +246,7 @@ export class LintPipeline {
     let chain: ResultAsync<void, CodepolicyError> = okAsync(undefined);
 
     for (const rule of resolvedRules) {
+      if (rule.kind === 'decision') continue;
       const create = rule.create;
       chain = chain.andThen(() =>
         create(this.workingDir, rule.options)
@@ -269,6 +276,12 @@ export class LintPipeline {
     const pairs = buildPairs(scopes, resolvedRules, overrides);
     this.logChecksSummary(pairs);
     if (pairs.length === 0) return okAsync({ results: [], errors: [] });
+
+    const validation = validateExecution(
+      pairs.map(([, rule]) => rule),
+      settings.reasoningEffort ?? undefined,
+    );
+    if (validation.isErr()) return errAsync(validation.error);
 
     return this.createEvaluators(resolvedRules)
       .andThen((evaluatorMap) =>
@@ -433,6 +446,7 @@ export class LintPipeline {
     return this.logContextStore.run(
       { rule: rule.id, scope: `${scope.filePath}:${scope.name}` },
       () => {
+        if (rule.kind === 'decision') return this.evaluateDecisionScope(scope, rule, fileTree);
         const evaluator = evaluatorMap.get(rule.id);
         if (!evaluator) {
           return errAsync<LintResult, CodepolicyError>(
@@ -465,5 +479,26 @@ export class LintPipeline {
           );
       },
     );
+  }
+
+  private evaluateDecisionScope(
+    scope: ScopeUnit,
+    rule: ResolvedDecisionRule,
+    fileTree: string | undefined,
+  ): ResultAsync<LintResult, CodepolicyError> {
+    return runDecision(this.toScopeContext(scope, fileTree), rule.definition, rule.agent)
+      .mapErr((cause) => codepolicyError('LLM_API_ERROR', 'Jev rule execution failed.', cause))
+      .map((evaluation) => {
+        const verdict = toDisplayVerdict(evaluation.result);
+        this.logEvaluationResult(evaluation.usage, evaluation.durationMs, verdict.verdict);
+        return {
+          filePath: scope.filePath,
+          scopeName: scope.name,
+          rule,
+          ...verdict,
+          usage: evaluation.usage,
+          durationMs: evaluation.durationMs,
+        };
+      });
   }
 }

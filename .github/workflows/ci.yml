@@ -33,5 +33,5 @@ jobs:
       - name: Lint
         run: bun run lint
 
-      - name: Unit tests (exclude LLM integration)
-        run: bun run test --exclude='src/rules/*/rule.test.ts'
+      - name: Internal tests (no inference API calls)
+        run: bun run test

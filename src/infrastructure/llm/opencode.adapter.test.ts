@@ -3,6 +3,7 @@ import { ResultAsync } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestContainer } from '../../test-support/test-container';
+import { expectStructuredContract } from '../../test-support/provider-contract';
 
 import { OpenCodeProvider } from './opencode.adapter';
 import type { OpenCodeInstance } from './opencode-server-manager';
@@ -92,6 +93,7 @@ describe('OpenCodeProvider', () => {
 
     expect(result.isOk()).toBe(true);
     const value = result._unsafeUnwrap();
+    expectStructuredContract(testSchema, value);
     expect(value.output).toEqual({ score: 8, reason: 'good' });
     expect(value.usage).toEqual({
       inputTokens: 0,
@@ -148,6 +150,32 @@ describe('OpenCodeProvider', () => {
     expect(result._unsafeUnwrapErr().message).toContain(
       'Failed to parse OpenCode response as JSON',
     );
+    expect(mockServerManager.release).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { parts: [] },
+    { parts: [{ type: 'text', text: JSON.stringify({ score: 8, reason: 'good' }) }] },
+  ])('preserves OpenCode API errors even when parts exist: %j', async ({ parts }) => {
+    setupAcquire(
+      createMockInstance({
+        sessionPrompt: vi.fn().mockResolvedValue({
+          data: {
+            info: {
+              error: {
+                name: 'APIError',
+                data: { message: 'Model is not supported', statusCode: 400, isRetryable: false },
+              },
+            },
+            parts,
+          },
+        }),
+      }),
+    );
+    const result = await provider.generate(createRequest());
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toContain('Model is not supported');
+    expect(result._unsafeUnwrapErr().message).toContain('400');
     expect(mockServerManager.release).toHaveBeenCalledOnce();
   });
 
