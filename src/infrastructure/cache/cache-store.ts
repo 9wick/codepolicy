@@ -3,6 +3,7 @@ import type { ResultAsync } from 'neverthrow';
 
 import type { CodepolicyError } from '../../shared/errors';
 import type { VerdictLabel } from '../../shared/types';
+import type { DecisionSnapshot } from '../../shared/decision-types';
 
 export type CacheKey = { readonly raw: string };
 
@@ -16,6 +17,7 @@ export type CachedEntry = {
   citations: string[];
   savedAt: string;
   codepolicyVersion: string;
+  decision?: DecisionSnapshot;
 };
 
 export type LookupOutcome =

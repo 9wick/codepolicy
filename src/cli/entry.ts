@@ -9,6 +9,8 @@ import { destroyAppContainer, getAppContainer } from '../shared/container';
 import { formatErrorCauseChain } from '../shared/errors';
 import { LogLevelToken } from '../shared/logger';
 
+import { cacheOption } from './cache-option';
+
 const main = defineCommand({
   meta: {
     name: 'codepolicy',
@@ -50,11 +52,7 @@ const main = defineCommand({
       description: 'Show verbose output including SDK message logs',
       default: false,
     },
-    'no-cache': {
-      type: 'boolean',
-      description: 'Disable evaluation result cache (do not look up or save cache entries)',
-      default: false,
-    },
+    cache: cacheOption,
   },
   subCommands: {
     rule: () => import('./commands/rule.command').then((m) => m.default),
@@ -82,7 +80,7 @@ const main = defineCommand({
       concurrency: args.concurrency ? Number(args.concurrency) : undefined,
       reasoningEffort: reasoningEffortResult.value,
       base: args.base,
-      noCache: args['no-cache'],
+      noCache: !args.cache,
     });
 
     result.match(

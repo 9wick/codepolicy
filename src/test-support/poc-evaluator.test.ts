@@ -2,6 +2,8 @@ import { errAsync, ok, okAsync } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CreateDecisionClient } from '../infrastructure/llm/typesafe-client';
+import { RuleEvaluationService } from '../application/rule-execution/rule-evaluation.service';
+import { CacheStoreToken, type LookupOutcome } from '../infrastructure/cache/cache-store';
 import type { RegisteredRule } from '../rules/decision-rule-types';
 import definition from '../rules/jev-no-implicit-fallback/rule';
 import { resetAppContainer, getAppContainer } from '../shared/container';
@@ -26,6 +28,31 @@ const fixture: PocCase = {
 };
 
 describe('PoC measurement contracts', () => {
+  it('uses shared evaluation with caching explicitly disabled on every measurement', async () => {
+    resetAppContainer();
+    const lookup = vi.fn(() => okAsync({ kind: 'miss' } satisfies LookupOutcome));
+    const save = vi.fn(() => okAsync(undefined));
+    const container = getAppContainer();
+    container.bind({ provide: CacheStoreToken, useValue: { lookup, save } });
+    const shared = vi.spyOn(
+      container.get<RuleEvaluationService>(RuleEvaluationService),
+      'evaluate',
+    );
+    const evaluate = vi.fn(() =>
+      okAsync({ verdict: 'pass', reasoning: 'ok', citations: [] } satisfies RuleVerdict),
+    );
+    const rule: RegisteredRule = {
+      id: 'baseline',
+      definition: { meta: { scope: 'function' }, create: () => okAsync(evaluate) },
+    };
+    await evaluatePocCase(fixture, rule, 'openai/gpt-5.4');
+    await evaluatePocCase(fixture, rule, 'openai/gpt-5.4');
+    expect(shared).toHaveBeenCalledTimes(2);
+    expect(shared.mock.calls.every((call) => call[4].noCache === true)).toBe(true);
+    expect(evaluate).toHaveBeenCalledTimes(2);
+    expect(lookup).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+  });
   it('uses the same context for both routes and retains raw observations and model identities', async () => {
     resetAppContainer();
     const systemOne = vi.fn(async (request: NoulRequest) => ({

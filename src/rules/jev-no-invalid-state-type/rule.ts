@@ -3,7 +3,6 @@ import type { DecisionRuleDefinition } from '../decision-rule-types';
 const definition: DecisionRuleDefinition = {
   meta: {
     scope: ['type', 'interface'],
-    cacheable: false,
   },
   include: ['source', 'filePath', 'name', 'scopeType'],
   criteria: [

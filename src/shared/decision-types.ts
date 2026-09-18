@@ -44,6 +44,11 @@ export type DecisionEvaluation = {
   readonly durationMs: number;
 };
 
+export type DecisionSnapshot = Pick<
+  DecisionEvaluation,
+  'result' | 'requestedModel' | 'responseModel'
+>;
+
 export const DEFAULT_DECISION_THRESHOLDS: DecisionThresholds = {
   passMax: 0.3,
   violationMin: 0.7,

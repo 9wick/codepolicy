@@ -2,11 +2,15 @@ import { createHash } from 'node:crypto';
 
 import { errAsync, okAsync, type ResultAsync } from 'neverthrow';
 
-import { createLlmHelper } from '../application/rule-execution/create-llm-helper';
-import { runDecision } from '../application/rule-execution/run-decision';
+import {
+  RuleEvaluationService,
+  type EvaluationResult,
+} from '../application/rule-execution/rule-evaluation.service';
+import { RuleResolver } from '../rules/rule-resolver.service';
 import type { RegisteredRule } from '../rules/decision-rule-types';
 import type { ScopeContext } from '../rules/rule-types';
 import type { DecisionEvaluation } from '../shared/decision-types';
+import { getAppContainer } from '../shared/container';
 import type { RuleVerdict, TokenUsage, VerdictLabel } from '../shared/types';
 
 export type PocCase = {
@@ -46,16 +50,57 @@ function evaluate(
   rule: RegisteredRule,
   model: string,
 ): ResultAsync<PocOutcome, Error> {
-  if (rule.kind === 'decision') {
-    return runDecision(testCase.context, rule.definition, model).map(
-      (result): PocOutcome => ({ kind: 'decision', result }),
-    );
-  }
-  const helper = createLlmHelper(testCase.context, model, '.');
-  return rule.definition
-    .create('.')
-    .andThen((evaluator) => evaluator({ ...testCase.context, llm: helper }))
-    .map((result): PocOutcome => ({ kind: 'text', result, usage: helper.getUsage() }));
+  const container = getAppContainer();
+  const resolved = container
+    .get(RuleResolver)
+    .resolve({ filter: 'all', agent: model, rules: { [rule.id]: 'error' } }, [rule]);
+  if (resolved.isErr()) return errAsync(new Error(resolved.error.message));
+  const effective = resolved.value[0];
+  if (!effective) return errAsync(new Error(`Rule not resolved: ${rule.id}`));
+  const evaluation = container.get(RuleEvaluationService);
+  const ctx = testCase.context;
+  return evaluation
+    .prepare(effective)
+    .andThen((evaluator) =>
+      evaluation.evaluate(
+        {
+          filePath: ctx.filePath,
+          code: ctx.source,
+          scopeType: ctx.scopeType,
+          name: ctx.name,
+          signature: ctx.signature,
+          startLine: ctx.startLine,
+          endLine: ctx.endLine,
+        },
+        effective,
+        ctx.fileTree,
+        evaluator,
+        { noCache: true },
+      ),
+    )
+    .mapErr((cause) => (cause.cause instanceof Error ? cause.cause : new Error(cause.message)))
+    .map(toPocOutcome);
+}
+
+function toPocOutcome(evaluation: EvaluationResult): PocOutcome {
+  if (evaluation.decision)
+    return {
+      kind: 'decision',
+      result: {
+        ...evaluation.decision,
+        usage: evaluation.usage,
+        durationMs: evaluation.durationMs,
+      },
+    };
+  return {
+    kind: 'text',
+    result: {
+      verdict: evaluation.verdict,
+      reasoning: evaluation.reasoning,
+      citations: evaluation.citations,
+    },
+    usage: evaluation.usage,
+  };
 }
 
 export function evaluatePocCase(

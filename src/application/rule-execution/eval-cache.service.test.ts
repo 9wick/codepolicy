@@ -25,6 +25,11 @@ const baseInput: CacheKeyInput = {
 };
 
 describe('EvalCacheService.toCacheKey', () => {
+  it('preserves the pre-existing scope cache key', () => {
+    expect(EvalCacheService.toCacheKey(baseInput).raw).toBe(
+      'de5d608e4590b46a46656dae1c449bf4610a61caa4bccfc96c5593b2cd1f5c4d',
+    );
+  });
   it('produces the same key for the same input', () => {
     expect(EvalCacheService.toCacheKey(baseInput).raw).toBe(
       EvalCacheService.toCacheKey({ ...baseInput }).raw,

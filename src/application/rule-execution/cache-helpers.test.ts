@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ResolvedTextRule, RuleVerdict, ScopeUnit } from '../../shared/types';
+import definition from '../../rules/jev-no-implicit-fallback/rule';
+import type { ResolvedDecisionRule } from '../../shared/types';
 
 import { buildCacheInput, buildResultFromCache } from './cache-helpers';
+import { EvalCacheService } from './eval-cache.service';
 
 const baseScope: ScopeUnit = {
   filePath: 'src/foo.ts',
@@ -29,6 +32,34 @@ function makeRule(overrides: Partial<ResolvedTextRule>): ResolvedTextRule {
 }
 
 describe('buildCacheInput', () => {
+  it('isolates whole-file evaluation without changing default scope input', () => {
+    const rule = makeRule({});
+    const legacy = buildCacheInput(baseScope, rule, undefined, undefined);
+    expect(legacy).not.toHaveProperty('mode');
+    const file = buildCacheInput(baseScope, rule, undefined, undefined, 'file');
+    expect(EvalCacheService.toCacheKey(file)).not.toEqual(EvalCacheService.toCacheKey(legacy));
+  });
+  it('hashes exactly the file tree requested by decision definitions', () => {
+    const rule: ResolvedDecisionRule = {
+      id: 'jev',
+      kind: 'decision',
+      scope: 'function',
+      agent: 'typesafe-jev',
+      level: 'error',
+      borderline: 'warn',
+      definition,
+    };
+    expect(buildCacheInput(baseScope, rule, 'tree-a', undefined)).toEqual(
+      buildCacheInput(baseScope, rule, 'tree-b', undefined),
+    );
+    const withTree: ResolvedDecisionRule = {
+      ...rule,
+      definition: { ...definition, include: ['source', 'fileTree'] },
+    };
+    expect(buildCacheInput(baseScope, withTree, 'tree-a', undefined)).not.toEqual(
+      buildCacheInput(baseScope, withTree, 'tree-b', undefined),
+    );
+  });
   it('omits fileTreeHash when rule.usesFileTree is undefined', () => {
     const rule = makeRule({});
     const a = buildCacheInput(baseScope, rule, 'tree-version-1', undefined);

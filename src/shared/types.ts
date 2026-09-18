@@ -51,7 +51,6 @@ export type ResolvedTextRule = {
 export type ResolvedDecisionRule = Omit<ResolvedTextRule, 'kind' | 'create'> & {
   kind: 'decision';
   definition: DecisionRuleDefinition;
-  cacheable: false;
 };
 
 export type ResolvedRule = ResolvedTextRule | ResolvedDecisionRule;

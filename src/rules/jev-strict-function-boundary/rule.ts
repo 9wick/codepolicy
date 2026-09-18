@@ -3,7 +3,6 @@ import type { DecisionRuleDefinition } from '../decision-rule-types';
 const definition: DecisionRuleDefinition = {
   meta: {
     scope: 'function',
-    cacheable: false,
   },
   include: ['source', 'signature', 'filePath'],
   criteria: [

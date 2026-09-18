@@ -9,18 +9,6 @@ import { DEFAULT_DECISION_THRESHOLDS, type DecisionEvaluation } from '../../shar
 import { CreateLogger } from '../../shared/logger';
 
 import { evaluateDecision } from './evaluate-decision';
-import { generateFileTree } from './file-tree.lib';
-
-export function runDecisionFile(
-  ctx: ScopeContext,
-  definition: DecisionRuleDefinition,
-  model: string,
-  workingDir: string,
-): ResultAsync<DecisionEvaluation, Error> {
-  return generateFileTree(workingDir).andThen((fileTree) =>
-    runDecision({ ...ctx, fileTree }, definition, model),
-  );
-}
 
 export function runDecision(
   ctx: ScopeContext,

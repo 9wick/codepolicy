@@ -39,7 +39,7 @@ describe('Jev built-in rule contracts', () => {
       expect.objectContaining({
         id: 'jev-no-implicit-fallback',
         kind: 'decision',
-        cacheable: false,
+        ruleVersion: expect.any(String),
         level: 'error',
       }),
     ]);
@@ -65,10 +65,10 @@ describe('Jev built-in rule contracts', () => {
     ).toBe(true);
   });
 
-  it('uses complete unique questions and disables caching for every Jev rule', () => {
+  it('uses complete unique questions and allows caching for every Jev rule', () => {
     for (const rule of builtinDecisionRules) {
       expect(validateCriteria(rule.definition.criteria).isOk()).toBe(true);
-      expect(rule.definition.meta.cacheable).toBe(false);
+      expect(rule.definition.meta.cacheable).not.toBe(false);
       expect(rule.definition.include).toContain('source');
     }
     const placement = builtinDecisionRules.find((r) => r.id === 'jev-ssot-placement');

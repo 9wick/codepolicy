@@ -9,7 +9,7 @@ export type DecisionCriterion = {
 };
 
 export type DecisionRuleDefinition = {
-  readonly meta: RuleMeta & { cacheable: false };
+  readonly meta: RuleMeta;
   readonly include: readonly DecisionField[];
   readonly criteria: readonly DecisionCriterion[];
 };

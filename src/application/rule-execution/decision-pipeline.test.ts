@@ -1,6 +1,12 @@
-import { ok, okAsync } from 'neverthrow';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
+import { ok, okAsync } from 'neverthrow';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { CacheStoreToken } from '../../infrastructure/cache/cache-store';
+import { createFileCacheStore } from '../../infrastructure/cache/file-cache-store';
 import { GitDiffService } from '../../infrastructure/git/git-diff.service';
 import { CreateDecisionClient } from '../../infrastructure/llm/typesafe-client';
 import { validateNoulResponse } from '../../infrastructure/llm/typesafe-provider';
@@ -15,7 +21,14 @@ import { EvalCacheService } from './eval-cache.service';
 import { LintPipeline } from './lint-pipeline.service';
 import { ScopeExtractor } from './scope-extractor.service';
 
-afterEach(() => vi.restoreAllMocks());
+let cacheRoot: string;
+beforeEach(async () => {
+  cacheRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'jev-pipeline-cache-'));
+});
+afterEach(async () => {
+  vi.restoreAllMocks();
+  await fs.rm(cacheRoot, { recursive: true, force: true });
+});
 
 function setup(config: CodepolicyConfig, probability = 0.91) {
   const systemOne = vi.fn(async (request: NoulRequest) => {
@@ -34,6 +47,7 @@ function setup(config: CodepolicyConfig, probability = 0.91) {
   });
   const debug = vi.fn();
   const { target, container } = createTestContainer(LintPipeline, [
+    { provide: CacheStoreToken, useValue: createFileCacheStore(cacheRoot) },
     { provide: CreateDecisionClient, useValue: () => ok({ systemOne }) },
     { provide: CreateLogger, useValue: () => ({ info: vi.fn(), warn: vi.fn(), debug }) },
   ]);
@@ -83,7 +97,7 @@ describe('Jev lint integration', () => {
     expect((await test.target.run({})).isErr()).toBe(true);
     expect(test.systemOne).not.toHaveBeenCalled();
   });
-  it('runs a decision rule without text initialization or cache and logs raw observations', async () => {
+  it('reuses persisted decision results and logs raw observations without another API call', async () => {
     const test = setup(config);
     const result = (await test.target.run({}))._unsafeUnwrap();
     expect(result.errors).toEqual([]);
@@ -93,9 +107,53 @@ describe('Jev lint integration', () => {
       citations: [],
     });
     expect(test.systemOne).toHaveBeenCalledTimes(1);
+    expect(test.lookup).toHaveBeenCalledTimes(1);
+    expect(test.save).toHaveBeenCalledTimes(1);
+    expect(test.debug.mock.calls.flat().join('\n')).toContain('jev-1.0.0');
+    const restarted = setup(config);
+    const cached = (await restarted.target.run({}))._unsafeUnwrap();
+    expect(cached.results[0]).toMatchObject({
+      verdict: 'violation',
+      reasoning: result.results[0]?.reasoning,
+      usage: { inputTokens: 0, outputTokens: 0 },
+    });
+    expect(restarted.systemOne).not.toHaveBeenCalled();
+    expect(restarted.save).not.toHaveBeenCalled();
+    expect(restarted.debug.mock.calls.flat().join('\n')).toContain('0.91');
+  });
+  it('noCache bypasses both lookup and save even with a populated cache', async () => {
+    const test = setup(config);
+    await test.target.run({});
+    test.lookup.mockClear();
+    test.save.mockClear();
+    await test.target.run({ noCache: true });
+    await test.target.run({ noCache: true });
+    expect(test.systemOne).toHaveBeenCalledTimes(3);
     expect(test.lookup).not.toHaveBeenCalled();
     expect(test.save).not.toHaveBeenCalled();
-    expect(test.debug.mock.calls.flat().join('\n')).toContain('jev-1.0.0');
+  });
+  it('reevaluates when source or requested model changes', async () => {
+    const test = setup(config);
+    await test.target.run({});
+    test.extract.mockReturnValue(
+      okAsync([
+        {
+          filePath: 'src/example.ts',
+          scopeType: 'function',
+          name: 'example',
+          code: 'function example() { return 2; }',
+          signature: 'function example(): number',
+          startLine: 1,
+          endLine: 1,
+          isExported: true,
+        },
+      ]),
+    );
+    await test.target.run({});
+    await test.target.run({ agent: 'typesafe-jev-1.13.0' });
+    await test.target.run({ agent: 'typesafe-jev-1.13.0' });
+    expect(test.systemOne).toHaveBeenCalledTimes(3);
+    expect(test.save).toHaveBeenCalledTimes(3);
   });
   it('rejects a model mismatch before scope extraction or cache access', async () => {
     const test = setup(config);
@@ -120,7 +178,7 @@ describe('Jev lint integration', () => {
     expect(result.results[0]?.verdict).toBe('pass');
     expect(test.systemOne.mock.calls[0]?.[0].state['fileTree']).toContain('src/');
     test.systemOne.mockRejectedValueOnce(new Error('missing key'));
-    const failed = (await test.target.run({}))._unsafeUnwrap();
+    const failed = (await test.target.run({ noCache: true }))._unsafeUnwrap();
     expect(failed.results).toEqual([]);
     expect(failed.errors[0]?.error.code).toBe('LLM_API_ERROR');
   });

@@ -18,8 +18,16 @@ import type {
 } from '../../shared/types';
 import type { RuleModule } from '../../rules/rule-types';
 import type { RuleCreateFn } from '../../rules/rule-types';
+import { ConfigLoader, WorkingDir } from '../config/config-loader.service';
+import { RuleResolver } from '../../rules/rule-resolver.service';
+import { ExternalRuleLoader } from '../../rules/external-rule-loader.service';
+import { GitDiffService } from '../../infrastructure/git/git-diff.service';
+import { CreateLogger, LogContextStore } from '../../shared/logger';
+import { createTestContainer } from '../../test-support/test-container';
 
 import { LintPipeline, type LintOptions } from './lint-pipeline.service';
+import { ScopeExtractor } from './scope-extractor.service';
+import { EvalCacheService } from './eval-cache.service';
 
 // --- Factories ---
 
@@ -125,18 +133,17 @@ function buildDefaultDeps() {
 function createPipeline(deps: MockDeps): LintPipeline {
   const defaults = buildDefaultDeps();
   const merged = { ...defaults, ...deps };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock injection bypasses DI container
-  return new (LintPipeline as any)(
-    merged.configLoader,
-    merged.ruleResolver,
-    merged.externalRuleLoader,
-    merged.gitDiffService,
-    merged.scopeExtractor,
-    merged.workingDir,
-    merged.logContextStore,
-    merged.log,
-    merged.evalCache,
-  );
+  return createTestContainer(LintPipeline, [
+    { provide: ConfigLoader, useValue: merged.configLoader },
+    { provide: RuleResolver, useValue: merged.ruleResolver },
+    { provide: ExternalRuleLoader, useValue: merged.externalRuleLoader },
+    { provide: GitDiffService, useValue: merged.gitDiffService },
+    { provide: ScopeExtractor, useValue: merged.scopeExtractor },
+    { provide: WorkingDir, useValue: merged.workingDir },
+    { provide: LogContextStore, useValue: merged.logContextStore },
+    { provide: CreateLogger, useValue: () => merged.log },
+    { provide: EvalCacheService, useValue: merged.evalCache },
+  ]).target;
 }
 
 // --- Tests ---

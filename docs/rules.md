@@ -16,7 +16,17 @@ codepolicy に組み込まれているルールの一覧です。
 
 各観点は違反命題に対するNoul値。0.7以上がviolation、0.3以下がpass、その間がborderline。1観点でもviolationなら全体violation、全観点passならpass、それ以外はborderline。閾値はPoCの固定値であり、正解率の保証ではない。
 
-通常出力では合成判定に該当する指摘だけを定義順に表示する。値は丸めない。Jevには引用機能がないため`rule run`にもCitations行を表示しない。Jevルールは常に結果キャッシュ無効、`--reasoning-effort`は実行前エラー。詳細は [比較測定](benchmark/README.md)。
+通常出力では合成判定に該当する指摘だけを定義順に表示する。値は丸めない。Jevには引用機能がないため`rule run`にもCitations行を表示しない。`--reasoning-effort`は実行前エラー。詳細は [比較測定](benchmark/README.md)。
+
+通常lint・`rule run` は、text/Jevとも既定で既存の結果キャッシュを利用する。同じ評価入力なら再実行時の推論API呼び出しは発生しない。Jevの質問・表示ラベル・include・閾値の変更はキャッシュキーへ反映される。ファイル全体を評価する `rule run` と通常lintの抽出scopeは区別する。
+
+強制的に再評価したい場合は、どちらも `--no-cache` を付ける。この実行ではキャッシュを照会せず、結果も保存しない。hit時の今回のusageは0となり、`--verbose` では保存済みのJev生値も確認できる。
+
+```sh
+codepolicy rule run jev-no-implicit-fallback src/example.ts --config .codepolicy.jev.yml
+codepolicy rule run jev-no-implicit-fallback src/example.ts --config .codepolicy.jev.yml --no-cache
+codepolicy --config .codepolicy.jev.yml --no-cache
+```
 
 ## 概要
 

@@ -9,10 +9,12 @@ import type { Result } from 'neverthrow';
 import { codepolicyError } from '../shared/errors';
 import type { CodepolicyError } from '../shared/errors';
 import type { ResolvedRule, CodepolicyConfig } from '../shared/types';
+import { DEFAULT_DECISION_THRESHOLDS } from '../shared/decision-types';
 
 import { extractBorderline, extractLevel, extractOptions } from './rule-config-utils';
 import type { RuleModule } from './rule-types';
 import type { RegisteredRule } from './decision-rule-types';
+import { computeDecisionRuleVersion } from './decision-rule-version';
 
 function computeRuleVersion(mod: RuleModule, options: Record<string, unknown> | undefined): string {
   const material = [
@@ -114,7 +116,12 @@ function resolveRule(
       usesFileTree: mod.definition.meta.usesFileTree,
     };
     if (mod.kind === 'decision') {
-      return { ...common, kind: 'decision', definition: mod.definition, cacheable: false };
+      return {
+        ...common,
+        kind: 'decision',
+        definition: mod.definition,
+        ruleVersion: computeDecisionRuleVersion(mod.definition, DEFAULT_DECISION_THRESHOLDS),
+      };
     }
     return {
       ...common,
