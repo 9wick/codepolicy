@@ -63,21 +63,6 @@ export const cases: readonly PocCase[] = [
     },
   },
   {
-    id: 'no-implicit-fallback/development/additional-3',
-    split: 'development',
-    expected: 'violation',
-    expectationReason: '未確定の業務値を正常な割引率0へ置き換えている。',
-    context: {
-      source:
-        'function discount(customer: Partial<Customer>): number { return customer.discountRate || 0; }',
-      filePath: 'src/domain/pricing.ts',
-      scopeType: 'function',
-      name: 'discount',
-      startLine: 1,
-      endLine: 1,
-    },
-  },
-  {
     id: 'no-implicit-fallback/development/technical-default',
     split: 'development',
     expected: 'pass',
@@ -88,6 +73,22 @@ export const cases: readonly PocCase[] = [
       filePath: 'src/utils/number.ts',
       scopeType: 'function',
       name: 'parseDecimal',
+      startLine: 1,
+      endLine: 1,
+    },
+  },
+  {
+    id: 'no-implicit-fallback/development/boundary-default-with-swallowed-failure',
+    split: 'development',
+    expected: 'violation',
+    expectationReason:
+      'HTTP境界のpage size既定値は許容するが、repository失敗を空配列の成功へ変換する処理は独立して違反になる。',
+    context: {
+      source:
+        'async function loadUsers(rawLimit: string | undefined): Promise<User[]> { const limit = rawLimit === undefined ? 20 : Number(rawLimit); try { return await repository.findAll(limit); } catch { return []; } }',
+      filePath: 'src/adapters/http/users.ts',
+      scopeType: 'function',
+      name: 'loadUsers',
       startLine: 1,
       endLine: 1,
     },
