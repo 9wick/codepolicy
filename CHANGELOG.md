@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.0](https://github.com/9wick/codepolicy/compare/codepolicy-v0.2.2...codepolicy-v1.0.0) (2026-09-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* rule config `threshold` is replaced by `borderline` (error | warn | off, default warn) controlling how borderline verdicts are reported. Custom rule API changes: `RuleMeta.threshold` is removed and evaluators now return `RuleVerdict` instead of `{score, reason}`. Old cache entries fail validation and are re-evaluated automatically.
+
+### Features
+
+* add Jev PoC rules with separate infra contract tests ([2e4047b](https://github.com/9wick/codepolicy/commit/2e4047b753f97fc6ec8083ba9db617f112697888))
+* add TypeSafe Jev semantic lint PoC ([f267745](https://github.com/9wick/codepolicy/commit/f267745ea789067aa8c393155c221f429b618232))
+* replace score/threshold scoring with evidence-based verdict pipeline ([1c0bd43](https://github.com/9wick/codepolicy/commit/1c0bd43f53bd4a2fefc15d6f2c28d2bcbdd05d02))
+
+
+### Bug Fixes
+
+* share evaluation cache across Jev and rule run ([7c740d0](https://github.com/9wick/codepolicy/commit/7c740d0f67ef33352e061f52c5904bd3a33daf98))
+
 ## [0.2.2](https://github.com/9wick/codepolicy/compare/codepolicy-v0.2.1...codepolicy-v0.2.2) (2026-05-07)
 
 
