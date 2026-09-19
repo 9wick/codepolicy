@@ -1,18 +1,19 @@
 import { Type } from '@sinclair/typebox';
 import { describe, expect, it } from 'vitest';
 
-import type { NoulRequest, NoulResponse } from '../shared/decision-types';
+import type { DecisionRequest, DecisionResponse } from '../shared/decision-types';
 
 import { expectDecisionContract, expectStructuredContract } from './provider-contract';
 
-const request: NoulRequest = {
+const request: DecisionRequest = {
   model: 'jev-1.13.0',
   state: { value: '2' },
   questions: { check: { type: 'noul', instructions: 'The value equals 2.' } },
 };
-const response: NoulResponse = {
+const response: DecisionResponse = {
   model: 'jev-1.13.0',
   probabilities: { check: 0.5 },
+  choiceDetails: {},
   usage: {
     inputTokens: 1,
     outputTokens: 1,

@@ -7,7 +7,7 @@ import { CacheStoreToken, type LookupOutcome } from '../infrastructure/cache/cac
 import type { RegisteredRule } from '../rules/decision-rule-types';
 import definition from '../rules/jev-no-implicit-fallback/rule';
 import { resetAppContainer, getAppContainer } from '../shared/container';
-import type { NoulRequest } from '../shared/decision-types';
+import type { DecisionRequest } from '../shared/decision-types';
 import type { RuleVerdict } from '../shared/types';
 
 import { evaluatePocCase, summarizePoc, type PocCase } from './poc-evaluator';
@@ -55,10 +55,25 @@ describe('PoC measurement contracts', () => {
   });
   it('uses the same context for both routes and retains raw observations and model identities', async () => {
     resetAppContainer();
-    const systemOne = vi.fn(async (request: NoulRequest) => ({
+    const systemOne = vi.fn(async (request: DecisionRequest) => ({
       model: 'jev-1.13.0',
       answers: Object.fromEntries(
-        Object.keys(request.questions).map((id) => [id, { type: 'noul', noul: 0.699 }]),
+        Object.entries(request.questions).map(([id, question]) => [
+          id,
+          question.type === 'choice'
+            ? {
+                type: 'choice',
+                choice: question.violationChoices[0] ?? '',
+                confidence: 0.699,
+                probabilities: Object.fromEntries(
+                  Object.keys(question.criteria).map((choice) => [
+                    choice,
+                    choice === question.violationChoices[0] ? 0.699 : 0,
+                  ]),
+                ),
+              }
+            : { type: 'noul', noul: 0.699 },
+        ]),
       ),
       usage: { input_tokens: 10, output_tokens: 3 },
     }));

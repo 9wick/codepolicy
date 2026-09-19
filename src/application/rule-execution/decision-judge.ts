@@ -7,7 +7,8 @@ import type {
   DecisionObservation,
   DecisionThresholds,
   DecisionVerdict,
-  NoulRequest,
+  DecisionRequest,
+  ChoiceDecisionDetail,
 } from '../../shared/decision-types';
 import type { RuleVerdict, VerdictLabel } from '../../shared/types';
 
@@ -32,10 +33,18 @@ function buildState(
   return ok(state);
 }
 
-function buildQuestions(criteria: readonly DecisionCriterion[]): NoulRequest['questions'] {
-  const questions: NoulRequest['questions'] = {};
+function buildQuestions(criteria: readonly DecisionCriterion[]): DecisionRequest['questions'] {
+  const questions: Record<string, DecisionRequest['questions'][string]> = {};
   for (const criterion of criteria) {
-    questions[criterion.id] = { type: 'noul', instructions: criterion.statement };
+    questions[criterion.id] =
+      criterion.type === 'choice'
+        ? {
+            type: 'choice',
+            instructions: criterion.statement,
+            criteria: criterion.choices,
+            violationChoices: criterion.violationChoices,
+          }
+        : { type: 'noul', instructions: criterion.statement };
   }
   return questions;
 }
@@ -44,7 +53,7 @@ export function buildDecisionRequest(
   ctx: ScopeContext,
   definition: DecisionRuleDefinition,
   model: string,
-): Result<NoulRequest, Error> {
+): Result<DecisionRequest, Error> {
   return validateCriteria(definition.criteria)
     .andThen(() => toSdkModelId(model))
     .andThen((sdkModel) =>
@@ -62,8 +71,8 @@ export function buildDecisionRequest(
 }
 
 function classify(value: number, thresholds: DecisionThresholds): VerdictLabel {
-  if (value >= thresholds.violationMin) return 'violation';
-  if (value <= thresholds.passMax) return 'pass';
+  if (value + Number.EPSILON >= thresholds.violationMin) return 'violation';
+  if (value <= thresholds.passMax + Number.EPSILON) return 'pass';
   return 'borderline';
 }
 
@@ -71,17 +80,30 @@ function observe(
   criteria: readonly DecisionCriterion[],
   probabilities: Readonly<Record<string, number>>,
   thresholds: DecisionThresholds,
+  choiceDetails: Readonly<Record<string, ChoiceDecisionDetail>>,
 ): Result<DecisionObservation[], Error> {
   const observations: DecisionObservation[] = [];
   for (const criterion of criteria) {
     const probability = probabilities[criterion.id];
-    if (probability === undefined) return err(new Error(`Missing Noul answer: ${criterion.id}.`));
-    observations.push({
-      id: criterion.id,
-      label: criterion.label,
-      probability,
-      verdict: classify(probability, thresholds),
-    });
+    if (probability === undefined)
+      return err(new Error(`Missing decision answer: ${criterion.id}.`));
+    const choice = choiceDetails[criterion.id];
+    observations.push(
+      choice === undefined
+        ? {
+            id: criterion.id,
+            label: criterion.label,
+            probability,
+            verdict: classify(probability, thresholds),
+          }
+        : {
+            id: criterion.id,
+            label: criterion.label,
+            probability,
+            verdict: classify(probability, thresholds),
+            choice,
+          },
+    );
   }
   return ok(observations);
 }
@@ -95,6 +117,7 @@ export function composeDecisionVerdict(
   criteria: readonly DecisionCriterion[],
   probabilities: Readonly<Record<string, number>>,
   thresholds: DecisionThresholds,
+  choiceDetails: Readonly<Record<string, ChoiceDecisionDetail>> = {},
 ): Result<DecisionVerdict, Error> {
   return validateCriteria(criteria)
     .andThen(() => validateThresholds(thresholds))
@@ -104,7 +127,7 @@ export function composeDecisionVerdict(
         probabilities,
       ),
     )
-    .andThen(() => observe(criteria, probabilities, thresholds))
+    .andThen(() => observe(criteria, probabilities, thresholds, choiceDetails))
     .map((observations) => ({ verdict: aggregate(observations), thresholds, observations }));
 }
 

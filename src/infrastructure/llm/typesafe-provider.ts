@@ -1,19 +1,36 @@
 import { Type } from '@sinclair/typebox';
 import { err, ok, ResultAsync, type Result } from 'neverthrow';
 
-import type { DecisionProvider, NoulResponse } from '../../shared/decision-types';
+import type {
+  ChoiceDecisionDetail,
+  ChoiceQuestion,
+  DecisionProvider,
+  DecisionQuestion,
+  DecisionRequest,
+  DecisionResponse,
+} from '../../shared/decision-types';
 
 import { validateBySchema } from './llm-provider';
 import type { DecisionClient } from './typesafe-client';
+
+const probabilitySchema = Type.Number({ minimum: 0, maximum: 1 });
 
 const responseSchema = Type.Object({
   model: Type.String({ minLength: 1 }),
   answers: Type.Record(
     Type.String(),
-    Type.Object({
-      type: Type.Literal('noul'),
-      noul: Type.Number({ minimum: 0, maximum: 1 }),
-    }),
+    Type.Union([
+      Type.Object({
+        type: Type.Literal('noul'),
+        noul: probabilitySchema,
+      }),
+      Type.Object({
+        type: Type.Literal('choice'),
+        choice: Type.String({ minLength: 1 }),
+        confidence: probabilitySchema,
+        probabilities: Type.Record(Type.String(), probabilitySchema),
+      }),
+    ]),
   ),
   usage: Type.Object({
     input_tokens: Type.Integer({ minimum: 0 }),
@@ -21,20 +38,111 @@ const responseSchema = Type.Object({
   }),
 });
 
-export function validateNoulResponse(
+type RawNoulAnswer = { type: 'noul'; readonly noul: number };
+type RawChoiceAnswer = {
+  type: 'choice';
+  readonly choice: string;
+  readonly confidence: number;
+  readonly probabilities: Record<string, number>;
+};
+type RawAnswer = RawNoulAnswer | RawChoiceAnswer;
+type NormalizedAnswer = {
+  readonly probability: number;
+  readonly choice?: ChoiceDecisionDetail;
+};
+
+function validateChoiceAnswer(
+  question: ChoiceQuestion,
+  answer: RawChoiceAnswer,
+): Result<void, Error> {
+  const choiceIds = Object.keys(question.criteria);
+  const answerIds = Object.keys(answer.probabilities);
+  const matches =
+    answerIds.length !== choiceIds.length ||
+    !choiceIds.every((id) => answerIds.includes(id)) ||
+    !choiceIds.includes(answer.choice);
+  return matches
+    ? err(new Error('TypeSafe Choice answer does not match the configured choices.'))
+    : ok(undefined);
+}
+
+function sumViolationProbability(
+  question: ChoiceQuestion,
+  answer: RawChoiceAnswer,
+): Result<number, Error> {
+  let probability = 0;
+  for (const id of question.violationChoices) {
+    const value = answer.probabilities[id];
+    if (value === undefined) {
+      return err(new Error('TypeSafe Choice answer omits a violation choice.'));
+    }
+    probability += value;
+  }
+  return probability <= 1
+    ? ok(probability)
+    : err(new Error('TypeSafe Choice violation probability exceeds 1.'));
+}
+
+function normalizeChoiceAnswer(
+  question: ChoiceQuestion,
+  answer: RawChoiceAnswer,
+): Result<NormalizedAnswer, Error> {
+  return validateChoiceAnswer(question, answer).andThen(() =>
+    sumViolationProbability(question, answer).map((probability) => ({
+      probability,
+      choice: {
+        choice: answer.choice,
+        confidence: answer.confidence,
+        probabilities: answer.probabilities,
+      },
+    })),
+  );
+}
+
+function normalizeAnswer(
+  question: DecisionQuestion,
+  answer: RawAnswer,
+): Result<NormalizedAnswer, Error> {
+  if (question.type === 'choice' && answer.type === 'choice') {
+    return normalizeChoiceAnswer(question, answer);
+  }
+  if (question.type === 'noul' && answer.type === 'noul') {
+    return ok({ probability: answer.noul });
+  }
+  return err(new Error('TypeSafe answer type does not match the question.'));
+}
+
+function normalizeAnswers(
+  request: DecisionRequest,
+  answers: Readonly<Record<string, RawAnswer>>,
+): Result<Pick<DecisionResponse, 'probabilities' | 'choiceDetails'>, Error> {
+  const probabilities: Record<string, number> = {};
+  const choiceDetails: Record<string, ChoiceDecisionDetail> = {};
+  for (const [id, question] of Object.entries(request.questions)) {
+    const answer = answers[id];
+    if (answer === undefined) return err(new Error(`Missing TypeSafe answer: ${id}.`));
+    const normalized = normalizeAnswer(question, answer);
+    if (normalized.isErr()) return err(normalized.error);
+    probabilities[id] = normalized.value.probability;
+    if (normalized.value.choice !== undefined) choiceDetails[id] = normalized.value.choice;
+  }
+  return ok({ probabilities, choiceDetails });
+}
+
+export function validateDecisionResponse(
   raw: unknown,
-  expectedIds: readonly string[],
-): Result<NoulResponse, Error> {
+  request: DecisionRequest,
+): Result<DecisionResponse, Error> {
   return validateBySchema(raw, responseSchema).andThen((response) => {
     const ids = Object.keys(response.answers);
+    const expectedIds = Object.keys(request.questions);
     if (ids.length !== expectedIds.length || !expectedIds.every((id) => ids.includes(id))) {
       return err(new Error('TypeSafe answer IDs do not match the questions.'));
     }
-    return ok({
+    return normalizeAnswers(request, response.answers).map(({ probabilities, choiceDetails }) => ({
       model: response.model,
-      probabilities: Object.fromEntries(
-        Object.entries(response.answers).map(([id, answer]) => [id, answer.noul]),
-      ),
+      probabilities,
+      choiceDetails,
       usage: {
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
@@ -42,7 +150,7 @@ export function validateNoulResponse(
         cacheReadInputTokens: 0,
         cacheCreationInputTokens: 0,
       },
-    });
+    }));
   });
 }
 
@@ -58,7 +166,7 @@ export function createDecisionProvider(
     ask: (request) =>
       createClient().asyncAndThen((client) =>
         ResultAsync.fromPromise(client.systemOne(request), toRequestError).andThen((raw) =>
-          validateNoulResponse(raw, Object.keys(request.questions)),
+          validateDecisionResponse(raw, request),
         ),
       ),
   };

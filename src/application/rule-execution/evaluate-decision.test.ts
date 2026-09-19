@@ -30,7 +30,9 @@ const usage = {
 
 describe('evaluateDecision', () => {
   it('performs one request and retains both model IDs, raw observations and usage', async () => {
-    const ask = vi.fn(() => okAsync({ model: 'jev-1.13.0', probabilities: { a: 0.91 }, usage }));
+    const ask = vi.fn(() =>
+      okAsync({ model: 'jev-1.13.0', probabilities: { a: 0.91 }, choiceDetails: {}, usage }),
+    );
     const result = await evaluateDecision(
       context,
       definition,

@@ -3,7 +3,7 @@ import Ajv from 'ajv';
 import { expect } from 'vitest';
 
 import type { LlmResponse } from '../infrastructure/llm/llm-provider';
-import type { NoulRequest, NoulResponse } from '../shared/decision-types';
+import type { DecisionRequest, DecisionResponse } from '../shared/decision-types';
 import type { TokenUsage } from '../shared/types';
 
 function expectUsageContract(usage: TokenUsage): void {
@@ -20,7 +20,7 @@ function expectUsageContract(usage: TokenUsage): void {
   }
 }
 
-export function expectDecisionContract(request: NoulRequest, response: NoulResponse): void {
+export function expectDecisionContract(request: DecisionRequest, response: DecisionResponse): void {
   expect(response.model.length).toBeGreaterThan(0);
   expect(Object.keys(response.probabilities).sort()).toEqual(Object.keys(request.questions).sort());
   for (const probability of Object.values(response.probabilities)) {

@@ -29,6 +29,16 @@ const decisionSnapshotSchema = Type.Object(
               label: Type.String(),
               probability: probabilitySchema,
               verdict: verdictLabelSchema,
+              choice: Type.Optional(
+                Type.Object(
+                  {
+                    choice: Type.String({ minLength: 1 }),
+                    confidence: probabilitySchema,
+                    probabilities: Type.Record(Type.String(), probabilitySchema),
+                  },
+                  { additionalProperties: false },
+                ),
+              ),
             },
             { additionalProperties: false },
           ),

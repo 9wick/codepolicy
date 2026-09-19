@@ -4,6 +4,7 @@ import { DEFAULT_DECISION_THRESHOLDS } from '../shared/decision-types';
 
 import type { DecisionRuleDefinition } from './decision-rule-types';
 import definition from './jev-no-implicit-fallback/rule';
+import multiCriteriaDefinition from './jev-strict-function-boundary/rule';
 import { computeDecisionRuleVersion } from './decision-rule-version';
 
 describe('decision cache versions', () => {
@@ -20,12 +21,20 @@ describe('decision cache versions', () => {
     expect(version(changed)).not.toBe(version(definition));
   });
   it('changes with criteria order, include selection and include order', () => {
-    const variants: DecisionRuleDefinition[] = [
-      { ...definition, criteria: [...definition.criteria].reverse() },
-      { ...definition, include: ['source'] },
-      { ...definition, include: [...definition.include].reverse() },
+    const variants: readonly (readonly [DecisionRuleDefinition, DecisionRuleDefinition])[] = [
+      [
+        multiCriteriaDefinition,
+        {
+          ...multiCriteriaDefinition,
+          criteria: [...multiCriteriaDefinition.criteria].reverse(),
+        },
+      ],
+      [definition, { ...definition, include: ['source'] }],
+      [definition, { ...definition, include: [...definition.include].reverse() }],
     ];
-    for (const variant of variants) expect(version(variant)).not.toBe(version(definition));
+    for (const [original, variant] of variants) {
+      expect(version(variant)).not.toBe(version(original));
+    }
   });
   it.each([
     { passMax: 0.2, violationMin: 0.7 },

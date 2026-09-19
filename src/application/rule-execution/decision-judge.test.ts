@@ -29,6 +29,7 @@ describe('decision judge contract', () => {
   it.each([
     [0, 'pass'],
     [0.3, 'pass'],
+    [0.1 + 0.2, 'pass'],
     [0.5, 'borderline'],
     [0.699, 'borderline'],
     [0.7, 'violation'],
@@ -82,6 +83,33 @@ describe('decision judge contract', () => {
     expect(result.map(toDisplayVerdict)).toEqual(
       ok({ verdict: 'pass', reasoning: 'Jev判定: 指摘なし', citations: [] }),
     );
+  });
+
+  it('retains raw Choice distribution on its normalized observation', () => {
+    const detail = {
+      choice: 'violation',
+      confidence: 0.8,
+      probabilities: { violation: 0.82, allowed: 0.18 },
+    };
+    const result = composeDecisionVerdict(
+      [
+        {
+          id: 'outcome',
+          label: '判定',
+          statement: 'Choose.',
+          type: 'choice',
+          choices: {
+            violation: 'Violation.',
+            allowed: 'Allowed.',
+          },
+          violationChoices: ['violation'],
+        },
+      ],
+      { outcome: 0.82 },
+      thresholds,
+      { outcome: detail },
+    );
+    expect(result.map((value) => value.observations[0]?.choice)).toEqual(ok(detail));
   });
 
   it.each([NaN, Infinity, -0.1, 1.1])('rejects invalid probability %s', (value) => {
