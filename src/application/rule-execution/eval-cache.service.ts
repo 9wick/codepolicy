@@ -12,6 +12,7 @@ import {
 } from '../../infrastructure/cache/cache-store';
 import type { CodepolicyError } from '../../shared/errors';
 import type { RuleVerdict } from '../../shared/types';
+import type { DecisionSnapshot } from '../../shared/decision-types';
 import { CODEPOLICY_VERSION } from '../../shared/version';
 
 export type CacheKeyInput = {
@@ -26,12 +27,14 @@ export type CacheKeyInput = {
   scopeName: string;
   filePath: string;
   fileTreeHash: string;
+  mode?: 'file';
 };
 
 export const CacheDisabledToken = new InjectionToken<boolean>('CacheDisabled');
 
 function buildKeyMaterial(input: CacheKeyInput): string {
   return [
+    ...(input.mode ? [`mode:${input.mode}`] : []),
     `r:${input.ruleId}`,
     `rv:${input.ruleVersion}`,
     `sv:${input.codepolicyVersion}`,
@@ -80,7 +83,10 @@ export class EvalCacheService {
     return promise;
   }
 
-  save(input: CacheKeyInput, verdict: RuleVerdict): ResultAsync<void, CodepolicyError> {
+  save(
+    input: CacheKeyInput,
+    verdict: RuleVerdict & { decision?: DecisionSnapshot },
+  ): ResultAsync<void, CodepolicyError> {
     if (this.disabled) return okAsync<void, CodepolicyError>(undefined);
     const key = EvalCacheService.toCacheKey(input);
     const entry: CachedEntry = {
@@ -89,6 +95,7 @@ export class EvalCacheService {
       citations: verdict.citations,
       savedAt: new Date().toISOString(),
       codepolicyVersion: CODEPOLICY_VERSION,
+      ...(verdict.decision ? { decision: verdict.decision } : {}),
     };
     return this.store.save(key, entry);
   }

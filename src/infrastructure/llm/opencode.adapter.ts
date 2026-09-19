@@ -1,5 +1,5 @@
 import { inject, injectable } from '@needle-di/core';
-import { type OpencodeClient, type Part } from '@opencode-ai/sdk/v2';
+import { type AssistantMessage, type OpencodeClient, type Part } from '@opencode-ai/sdk/v2';
 import { type Static, type TSchema } from '@sinclair/typebox';
 import { type Result, ResultAsync, err, errAsync, ok } from 'neverthrow';
 
@@ -110,6 +110,17 @@ function logOpenCodeParts(parts: Part[], log: Logger): void {
   for (const part of parts) logOpenCodePart(part, log);
 }
 
+function toResponseError(failure: NonNullable<AssistantMessage['error']>): Error {
+  if (failure.name === 'MessageOutputLengthError') {
+    return new Error(`OpenCode ${failure.name}`);
+  }
+  const status =
+    failure.name === 'APIError' && failure.data.statusCode !== undefined
+      ? ` (${failure.data.statusCode})`
+      : '';
+  return new Error(`OpenCode ${failure.name}${status}: ${failure.data.message}`);
+}
+
 function sendPrompt<Schema extends TSchema>(
   client: OpencodeClient,
   sessionID: string,
@@ -133,6 +144,11 @@ function sendPrompt<Schema extends TSchema>(
         `OpenCode API request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
       ),
   ).andThen((res) => {
+    const info = res.data?.info;
+    const failure = info?.error;
+    if (failure) {
+      return err(toResponseError(failure));
+    }
     if (!res.data?.parts) {
       return err(
         new Error(

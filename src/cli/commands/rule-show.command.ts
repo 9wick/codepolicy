@@ -1,6 +1,7 @@
 import { defineCommand } from 'citty';
 
 import { builtinRules } from '../../rules/builtin-rules';
+import { builtinDecisionRules } from '../../rules/builtin-decision-rules';
 
 export default defineCommand({
   meta: {
@@ -15,7 +16,7 @@ export default defineCommand({
     },
   },
   run({ args }) {
-    const ruleModule = builtinRules.find((r) => r.id === args.id);
+    const ruleModule = [...builtinRules, ...builtinDecisionRules].find((r) => r.id === args.id);
     if (!ruleModule) {
       console.error(`Error [RULE_NOT_FOUND]: Rule "${args.id}" not found.`);
       process.exitCode = 1;

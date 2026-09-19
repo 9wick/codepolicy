@@ -12,6 +12,36 @@ import { validateBySchema } from '../llm/llm-provider';
 
 import type { CacheKey, CacheStore, CachedEntry, LookupOutcome } from './cache-store';
 
+const probabilitySchema = Type.Number({ minimum: 0, maximum: 1 });
+const decisionSnapshotSchema = Type.Object(
+  {
+    result: Type.Object(
+      {
+        verdict: verdictLabelSchema,
+        thresholds: Type.Object(
+          { passMax: probabilitySchema, violationMin: probabilitySchema },
+          { additionalProperties: false },
+        ),
+        observations: Type.Array(
+          Type.Object(
+            {
+              id: Type.String(),
+              label: Type.String(),
+              probability: probabilitySchema,
+              verdict: verdictLabelSchema,
+            },
+            { additionalProperties: false },
+          ),
+        ),
+      },
+      { additionalProperties: false },
+    ),
+    requestedModel: Type.String(),
+    responseModel: Type.String(),
+  },
+  { additionalProperties: false },
+);
+
 const cachedEntrySchema = Type.Object(
   {
     verdict: verdictLabelSchema,
@@ -19,6 +49,7 @@ const cachedEntrySchema = Type.Object(
     citations: Type.Array(Type.String()),
     savedAt: Type.String(),
     codepolicyVersion: Type.String(),
+    decision: Type.Optional(decisionSnapshotSchema),
   },
   { additionalProperties: false },
 );
@@ -64,6 +95,7 @@ function classifyRaw(raw: string | null): LookupOutcome {
     citations: validated.value.citations,
     savedAt: validated.value.savedAt,
     codepolicyVersion: validated.value.codepolicyVersion,
+    ...(validated.value.decision ? { decision: validated.value.decision } : {}),
   };
   return { kind: 'hit', entry };
 }

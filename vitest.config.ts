@@ -1,22 +1,8 @@
 import { defineConfig } from 'vitest/config';
 
+import { commonConfig, testSuites } from './vitest.shared.config';
+
 export default defineConfig({
-  define: {
-    // 環境によって利用可能なモデルが異なるため env で上書き可能にする
-    CODEPOLICY_TEST_AGENT: JSON.stringify(process.env['CODEPOLICY_TEST_AGENT'] ?? 'openai/gpt-5.4'),
-  },
-  test: {
-    setupFiles: ['./vitest.setup.ts'],
-    environment: 'node',
-    include: ['src/**/*.test.ts', '.codepolicy/**/*.test.ts'],
-    exclude: ['node_modules', 'dist'],
-    passWithNoTests: true,
-    // Claude CodeのBashツールではデフォルトreporterの出力が消える問題の回避策
-    // see: https://github.com/anthropics/claude-code/issues/19663
-    ...(process.env['CLAUDE_CODE_ENTRYPOINT'] ? { reporters: ['verbose'] } : {}),
-    // テスト内でcodepolicy→LLM→Claude Code がネスト起動する際のエラー回避
-    env: {
-      CLAUDECODE: '0',
-    },
-  },
+  ...commonConfig,
+  test: { ...commonConfig.test, ...testSuites.internal },
 });

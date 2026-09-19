@@ -4,8 +4,20 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { DecisionSnapshot } from '../../shared/decision-types';
+
 import { type CachedEntry, makeCacheKey } from './cache-store';
 import { createFileCacheStore } from './file-cache-store';
+
+const decision: DecisionSnapshot = {
+  requestedModel: 'typesafe-jev',
+  responseModel: 'jev-1.13.0',
+  result: {
+    verdict: 'pass',
+    thresholds: { passMax: 0.3, violationMin: 0.7 },
+    observations: [{ id: 'criterion', label: 'Label', probability: 0.123456, verdict: 'pass' }],
+  },
+};
 
 const asKey = makeCacheKey;
 
@@ -26,6 +38,35 @@ describe('FileCacheStore', () => {
 
   afterEach(async () => {
     await fs.rm(cacheRoot, { recursive: true, force: true });
+  });
+
+  it('preserves raw decision metadata across store instances', async () => {
+    const key = asKey('1'.repeat(64));
+    const entry = { ...sampleEntry, decision };
+    expect((await createFileCacheStore(cacheRoot).save(key, entry)).isOk()).toBe(true);
+    expect((await createFileCacheStore(cacheRoot).lookup(key))._unsafeUnwrap()).toEqual({
+      kind: 'hit',
+      entry,
+    });
+  });
+  it('reports malformed decision metadata as corrupted', async () => {
+    const key = asKey('2'.repeat(64));
+    await fs.writeFile(
+      path.join(cacheRoot, `${key.raw}.json`),
+      JSON.stringify({
+        ...sampleEntry,
+        decision: {
+          ...decision,
+          result: {
+            ...decision.result,
+            observations: [{ id: 'c', label: 'c', probability: 2, verdict: 'pass' }],
+          },
+        },
+      }),
+    );
+    expect((await createFileCacheStore(cacheRoot).lookup(key))._unsafeUnwrap().kind).toBe(
+      'corrupted',
+    );
   });
 
   it('returns hit after save', async () => {

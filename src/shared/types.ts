@@ -1,6 +1,7 @@
 import type { Static } from '@sinclair/typebox';
 
 import type { RuleCreateFn } from '../rules/rule-types';
+import type { DecisionRuleDefinition } from '../rules/decision-rule-types';
 
 import type { CodepolicyError } from './errors';
 import {
@@ -31,7 +32,8 @@ export type RuleScope = Static<typeof ruleScopeSchema>;
 
 // --- Resolved Rule (config + rule merged) ---
 
-export type ResolvedRule = {
+export type ResolvedTextRule = {
+  kind?: 'text';
   id: string;
   scope: RuleScope | RuleScope[];
   agent: string;
@@ -45,6 +47,13 @@ export type ResolvedRule = {
   // rule の prompt や責務が変われば自動 invalidate される。resolver が常に設定する。
   ruleVersion?: string;
 };
+
+export type ResolvedDecisionRule = Omit<ResolvedTextRule, 'kind' | 'create'> & {
+  kind: 'decision';
+  definition: DecisionRuleDefinition;
+};
+
+export type ResolvedRule = ResolvedTextRule | ResolvedDecisionRule;
 
 // --- Git Diff ---
 

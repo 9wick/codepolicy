@@ -17,11 +17,15 @@ export function buildCacheInput(
   rule: ResolvedRule,
   fileTree: string | undefined,
   reasoningEffort: ModelReasoningEffort | undefined,
+  mode?: 'file',
 ): CacheKeyInput {
-  // fileTree を prompt に含めない rule は、ファイル追加で cache を無効化する必要がない。
-  // rule.usesFileTree===true のときだけ fileTreeHash を key に組み込む。
+  // Jevはinclude、textはmetaで宣言した場合だけ、ファイル構成の変化で無効化する。
+  const usesFileTree =
+    rule.kind === 'decision'
+      ? rule.definition.include.includes('fileTree')
+      : rule.usesFileTree === true;
   const fileTreeHash =
-    rule.usesFileTree === true && fileTree
+    usesFileTree && fileTree
       ? createHash('sha256').update(fileTree).digest('hex').slice(0, 16)
       : '';
   return {
@@ -36,6 +40,7 @@ export function buildCacheInput(
     scopeName: scope.name,
     filePath: scope.filePath,
     fileTreeHash,
+    ...(mode ? { mode } : {}),
   };
 }
 

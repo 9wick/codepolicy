@@ -46,7 +46,7 @@ describe('RuleResolver', () => {
       borderline: 'warn',
       level: 'error',
     });
-    expect(resolved[0]!.create).toBeTypeOf('function');
+    expect(resolved[0]).toHaveProperty('create', expect.any(Function));
     expect(resolved[1]!.level).toBe('warn');
   });
 

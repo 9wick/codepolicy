@@ -1,6 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { defineCommand, runCommand } from 'citty';
 
+import { cacheOption } from './cache-option';
+
+describe('shared cache CLI option', () => {
+  it.each([
+    { rawArgs: [], noCache: false },
+    { rawArgs: ['--no-cache'], noCache: true },
+  ])('maps $rawArgs to noCache=$noCache', async ({ rawArgs, noCache }) => {
+    let received: boolean | undefined;
+    const cmd = defineCommand({
+      args: { cache: cacheOption },
+      run: ({ args }) => {
+        received = !args.cache;
+      },
+    });
+    await runCommand(cmd, { rawArgs });
+    expect(received).toBe(noCache);
+  });
+});
+
 /**
  * citty@0.2.1 patch test
  * @see https://github.com/unjs/citty/issues/133

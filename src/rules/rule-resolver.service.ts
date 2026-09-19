@@ -9,9 +9,12 @@ import type { Result } from 'neverthrow';
 import { codepolicyError } from '../shared/errors';
 import type { CodepolicyError } from '../shared/errors';
 import type { ResolvedRule, CodepolicyConfig } from '../shared/types';
+import { DEFAULT_DECISION_THRESHOLDS } from '../shared/decision-types';
 
 import { extractBorderline, extractLevel, extractOptions } from './rule-config-utils';
 import type { RuleModule } from './rule-types';
+import type { RegisteredRule } from './decision-rule-types';
+import { computeDecisionRuleVersion } from './decision-rule-version';
 
 function computeRuleVersion(mod: RuleModule, options: Record<string, unknown> | undefined): string {
   const material = [
@@ -51,8 +54,8 @@ function validateOptions(
   return ok(effective);
 }
 
-function buildRuleMap(rules: RuleModule[]): Map<string, RuleModule> {
-  const ruleMap = new Map<string, RuleModule>();
+function buildRuleMap(rules: RegisteredRule[]): Map<string, RegisteredRule> {
+  const ruleMap = new Map<string, RegisteredRule>();
   for (const rule of rules) {
     ruleMap.set(rule.id, rule);
   }
@@ -60,7 +63,7 @@ function buildRuleMap(rules: RuleModule[]): Map<string, RuleModule> {
 }
 
 function checkMissingRules(
-  ruleMap: Map<string, RuleModule>,
+  ruleMap: Map<string, RegisteredRule>,
   config: CodepolicyConfig,
 ): Result<void, CodepolicyError> {
   const configRuleIds = Object.keys(config.rules);
@@ -91,7 +94,7 @@ function checkMissingRules(
 function resolveRule(
   id: string,
   config: CodepolicyConfig,
-  ruleMap: Map<string, RuleModule>,
+  ruleMap: Map<string, RegisteredRule>,
 ): Result<ResolvedRule | undefined, CodepolicyError> {
   const ruleConfig = config.rules[id];
   if (ruleConfig === undefined) return ok(undefined);
@@ -100,23 +103,40 @@ function resolveRule(
   if (!mod) return ok(undefined);
 
   const rawOptions = extractOptions(ruleConfig);
-  return validateOptions(id, rawOptions, mod.definition.optionsSchema).map((options) => ({
-    id: mod.id,
-    scope: mod.definition.meta.scope,
-    agent: config.agent,
-    borderline: extractBorderline(ruleConfig) ?? 'warn',
-    level: extractLevel(ruleConfig),
-    create: mod.definition.create,
-    options,
-    cacheable: mod.definition.meta.cacheable,
-    usesFileTree: mod.definition.meta.usesFileTree,
-    ruleVersion: computeRuleVersion(mod, options),
-  }));
+  const optionsSchema = mod.kind === 'decision' ? undefined : mod.definition.optionsSchema;
+  return validateOptions(id, rawOptions, optionsSchema).map((options): ResolvedRule => {
+    const common = {
+      id: mod.id,
+      scope: mod.definition.meta.scope,
+      agent: config.agent,
+      borderline: extractBorderline(ruleConfig) ?? 'warn',
+      level: extractLevel(ruleConfig),
+      options,
+      cacheable: mod.definition.meta.cacheable,
+      usesFileTree: mod.definition.meta.usesFileTree,
+    };
+    if (mod.kind === 'decision') {
+      return {
+        ...common,
+        kind: 'decision',
+        definition: mod.definition,
+        ruleVersion: computeDecisionRuleVersion(mod.definition, DEFAULT_DECISION_THRESHOLDS),
+      };
+    }
+    return {
+      ...common,
+      create: mod.definition.create,
+      ruleVersion: computeRuleVersion(mod, options),
+    };
+  });
 }
 
 @injectable()
 export class RuleResolver {
-  resolve(config: CodepolicyConfig, rules: RuleModule[]): Result<ResolvedRule[], CodepolicyError> {
+  resolve(
+    config: CodepolicyConfig,
+    rules: RegisteredRule[],
+  ): Result<ResolvedRule[], CodepolicyError> {
     const ruleMap = buildRuleMap(rules);
 
     const checkResult = checkMissingRules(ruleMap, config);

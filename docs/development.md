@@ -13,8 +13,11 @@ bun install
 ```bash
 bun run dev                    # Run CLI from source
 bun run build                  # Build (schema:generate + tsdown)
-bun run test                   # Run all tests (including LLM integration)
-bun run test:watch             # Watch mode
+bun run test                   # Internal tests only (no inference API calls)
+bun run test:watch             # Internal tests in watch mode
+bun run test:infra -- typesafe # Live TypeSafe adapter contract (one test)
+bun run test:infra -- opencode # Live OpenCode adapter contract (one test)
+bun run test:rules             # Rule accuracy evaluation (paid, many requests)
 bun run format                 # Format with Biome
 bun run lint                   # Lint with oxlint + ESLint
 bun run typecheck              # TypeScript type check
@@ -47,7 +50,7 @@ src/
 - **DI**: needle-di with `@injectable()` and `inject()`. Container managed in `src/shared/container.ts`
 - **Error handling**: Railway Oriented Programming with `neverthrow` (`Result`, `ResultAsync`)
 - **Type safety**: No `as`, no `any`, no `throw`, no `!` assertions. Enforced by ESLint rules
-- **Testing**: TDD style. Unit tests mock DI deps. Rule tests call real LLMs
+- **Testing**: TDD style. Internal tests mock external boundaries; live infra tests verify production adapters against the same contract assertions. Rule accuracy evaluations are run separately.
 
 ### Lint Pipeline Flow
 
@@ -68,6 +71,14 @@ src/
 4. Run `bun run prepush`
 
 ## CI
+
+### Jev PoC
+
+新規5ルールの宣言は `src/rules/jev-*/rule.ts`、登録は `builtin-decision-rules.ts`。既存の公開カスタムルールAPIは変更しない。`DecisionProvider`が数値応答を受け、application側で検証・分類・固定書式へ変換する。SDK型と認証はinfrastructure側に閉じる。
+
+内部完結テストは、閾値境界・不正な回答・実SDKを使ったHTTP差し替え・pipeline・CLI・測定ハーネスを検証する。`*.infra.test.ts` は本番アダプターと実サービスの契約を確認する専用テスト。`src/rules/*/rule.test.ts` は判定精度の評価であり、infra契約テストとは別物。収集パターンは `vitest.shared.config.ts` に集約し、通常test・CI・公開前チェックから実APIの両スイートを除外する。詳細は [Jev PoC](benchmark/README.md)。
+
+`bun run benchmark:jev --check`はAPIやファイル書き込みなしで測定構成を確認する。実測は`bun run benchmark:jev`。`bun prepush`は`precommit`（内部完結テストのみ）を呼ぶ別名であり、commit/pushは実行しない。実API契約・精度評価の成功を証明するコマンドではない。
 
 - **PR**: `ci.yml` runs format check, typecheck, lint, build, unit tests
 - **Main push**: `release.yml` runs CI, then syncs built dist to `release` branch

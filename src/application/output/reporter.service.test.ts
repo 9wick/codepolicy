@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { createTestContainer } from '../../test-support/test-container';
 import { codepolicyError } from '../../shared/errors';
-import type { LintErrorEntry, LintResult, ResolvedRule } from '../../shared/types';
+import type { LintErrorEntry, LintResult, ResolvedTextRule } from '../../shared/types';
 
 import { Reporter } from './reporter.service';
 
-const makeRule = (overrides?: Partial<ResolvedRule>): ResolvedRule => ({
+const makeRule = (overrides?: Partial<ResolvedTextRule>): ResolvedTextRule => ({
   id: 'function-contract',
   scope: 'function',
   agent: 'claude',
