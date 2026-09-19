@@ -28,6 +28,16 @@ const decision: DecisionSnapshot = {
         },
       },
     ],
+    concerns: [
+      {
+        id: 'fallback',
+        label: 'Fallback',
+        verdict: 'pass',
+        probability: 0.876544,
+        reason: 'Allowed by contract',
+        reasonKind: 'policy_result',
+      },
+    ],
   },
 };
 

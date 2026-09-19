@@ -50,6 +50,7 @@ export type ScopeContext = {
   filePath: string;
   scopeType: RuleScope;
   name: string;
+  qualifiedSymbol?: string;
   signature?: string;
   fileTree?: string;
   startLine: number;

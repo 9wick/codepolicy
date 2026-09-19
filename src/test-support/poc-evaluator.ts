@@ -68,6 +68,7 @@ function evaluate(
           code: ctx.source,
           scopeType: ctx.scopeType,
           name: ctx.name,
+          qualifiedSymbol: ctx.qualifiedSymbol ?? ctx.name,
           signature: ctx.signature,
           startLine: ctx.startLine,
           endLine: ctx.endLine,

@@ -29,8 +29,7 @@ describe('TypeSafe HTTP contract', () => {
     expect(result).toEqual(
       ok({
         model: 'jev-1.13.0',
-        probabilities: { violation: 0.91 },
-        choiceDetails: {},
+        answers: { violation: { type: 'noul', probability: 0.91 } },
         usage: {
           inputTokens: 100,
           outputTokens: 20,
@@ -59,7 +58,6 @@ describe('TypeSafe HTTP contract', () => {
           type: 'choice',
           instructions: 'Which outcome applies?',
           criteria: { violation: 'Policy violation.', allowed: 'Allowed behavior.' },
-          violationChoices: ['violation'],
         },
       },
     };
@@ -83,9 +81,9 @@ describe('TypeSafe HTTP contract', () => {
     expect(await provider.ask(choiceRequest)).toEqual(
       ok({
         model: 'jev-1.13.0',
-        probabilities: { outcome: 0.82 },
-        choiceDetails: {
+        answers: {
           outcome: {
+            type: 'choice',
             choice: 'violation',
             confidence: 0.8,
             probabilities: { violation: 0.82, allowed: 0.18 },

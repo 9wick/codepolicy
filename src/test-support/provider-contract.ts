@@ -22,11 +22,15 @@ function expectUsageContract(usage: TokenUsage): void {
 
 export function expectDecisionContract(request: DecisionRequest, response: DecisionResponse): void {
   expect(response.model.length).toBeGreaterThan(0);
-  expect(Object.keys(response.probabilities).sort()).toEqual(Object.keys(request.questions).sort());
-  for (const probability of Object.values(response.probabilities)) {
-    expect(Number.isFinite(probability)).toBe(true);
-    expect(probability).toBeGreaterThanOrEqual(0);
-    expect(probability).toBeLessThanOrEqual(1);
+  expect(Object.keys(response.answers).sort()).toEqual(Object.keys(request.questions).sort());
+  for (const answer of Object.values(response.answers)) {
+    const probabilities =
+      answer.type === 'noul' ? [answer.probability] : Object.values(answer.probabilities);
+    for (const probability of probabilities) {
+      expect(Number.isFinite(probability)).toBe(true);
+      expect(probability).toBeGreaterThanOrEqual(0);
+      expect(probability).toBeLessThanOrEqual(1);
+    }
   }
   expectUsageContract(response.usage);
 }

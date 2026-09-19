@@ -8,25 +8,49 @@ import multiCriteriaDefinition from './jev-strict-function-boundary/rule';
 import { computeDecisionRuleVersion } from './decision-rule-version';
 
 describe('decision cache versions', () => {
+  const composedDefinition =
+    definition.policy === undefined ? expect.fail('Expected composed definition.') : definition;
+  const directDefinition =
+    multiCriteriaDefinition.policy !== undefined
+      ? expect.fail('Expected direct definition.')
+      : multiCriteriaDefinition;
   const version = (value: DecisionRuleDefinition) =>
     computeDecisionRuleVersion(value, DEFAULT_DECISION_THRESHOLDS);
   it('is stable for the same definition', () => {
     expect(version({ ...definition })).toBe(version(definition));
   });
-  it.each(['id', 'label', 'statement'])('changes when criterion %s changes', (field) => {
-    const changed = {
-      ...definition,
-      criteria: definition.criteria.map((criterion) => ({ ...criterion, [field]: 'changed' })),
-    };
-    expect(version(changed)).not.toBe(version(definition));
+  it('changes when a criterion changes', () => {
+    expect(
+      version({
+        ...composedDefinition,
+        criteria: composedDefinition.criteria.map((criterion) => ({
+          ...criterion,
+          statement: `${criterion.statement} changed`,
+        })),
+      }),
+    ).not.toBe(version(composedDefinition));
+  });
+  it('changes when the composed policy changes', () => {
+    expect(
+      version({
+        ...composedDefinition,
+        policy: {
+          ...composedDefinition.policy,
+          concerns: composedDefinition.policy.concerns.map((concern) => ({
+            ...concern,
+            label: `${concern.label} changed`,
+          })),
+        },
+      }),
+    ).not.toBe(version(composedDefinition));
   });
   it('changes with criteria order, include selection and include order', () => {
     const variants: readonly (readonly [DecisionRuleDefinition, DecisionRuleDefinition])[] = [
       [
-        multiCriteriaDefinition,
+        directDefinition,
         {
-          ...multiCriteriaDefinition,
-          criteria: [...multiCriteriaDefinition.criteria].reverse(),
+          ...directDefinition,
+          criteria: [...directDefinition.criteria].reverse(),
         },
       ],
       [definition, { ...definition, include: ['source'] }],

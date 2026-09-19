@@ -99,6 +99,22 @@ function extractScopeType(node: Parser.SyntaxNode): 'function' | 'test-case' {
   return isTestCaseNode(node) ? 'test-case' : 'function';
 }
 
+function getEnclosingClassName(node: Parser.SyntaxNode): string | null {
+  let current = node.parent;
+  while (current) {
+    if (current.type === 'class_declaration' || current.type === 'abstract_class_declaration') {
+      return current.childForFieldName('name')?.text ?? null;
+    }
+    current = current.parent;
+  }
+  return null;
+}
+
+function buildQualifiedSymbol(node: Parser.SyntaxNode, name: string): string {
+  const className = node.type === 'method_definition' ? getEnclosingClassName(node) : null;
+  return className === null ? name : `${className}#${name}`;
+}
+
 export function findEnclosingNamedFunction(
   tree: Parser.Tree,
   sourceCode: string,
@@ -119,6 +135,7 @@ export function findEnclosingNamedFunction(
           filePath,
           scopeType: extractScopeType(current),
           name,
+          qualifiedSymbol: buildQualifiedSymbol(current, name),
           code: current.text,
           signature: extractSignature(current, sourceCode),
           isExported: isExportedNode(current),

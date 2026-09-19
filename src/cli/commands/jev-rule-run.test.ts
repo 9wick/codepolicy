@@ -29,6 +29,13 @@ function setup() {
   const store = createFileCacheStore(cacheRoot);
   const lookup = vi.spyOn(store, 'lookup');
   const save = vi.spyOn(store, 'save');
+  const selectedChoice = (id: string, choices: Readonly<Record<string, string>>): string => {
+    if (id === 'layer_role') return 'internal_layer';
+    if (id === 'external_input_default') return 'absent';
+    if (id === 'internal_value_default') return 'present';
+    if (id === 'failure_conversion') return 'absent';
+    return Object.keys(choices)[0] ?? '';
+  };
   const systemOne = vi.fn(async (request: DecisionRequest) => ({
     model: 'jev-1.0.0',
     answers: Object.fromEntries(
@@ -37,12 +44,12 @@ function setup() {
         question.type === 'choice'
           ? {
               type: 'choice',
-              choice: question.violationChoices[0] ?? '',
+              choice: selectedChoice(id, question.criteria),
               confidence: 0.91,
               probabilities: Object.fromEntries(
                 Object.keys(question.criteria).map((choice) => [
                   choice,
-                  choice === question.violationChoices[0] ? 0.91 : 0,
+                  choice === selectedChoice(id, question.criteria) ? 0.91 : 0,
                 ]),
               ),
             }

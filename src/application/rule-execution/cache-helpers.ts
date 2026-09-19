@@ -12,6 +12,13 @@ import { CODEPOLICY_VERSION } from '../../shared/version';
 
 import type { CacheKeyInput } from './eval-cache.service';
 
+function getQualifiedSymbol(scope: ScopeUnit, rule: ResolvedRule): string | undefined {
+  if (rule.kind !== 'decision') return undefined;
+  return rule.definition.include.includes('qualifiedSymbol')
+    ? (scope.qualifiedSymbol ?? scope.name)
+    : undefined;
+}
+
 export function buildCacheInput(
   scope: ScopeUnit,
   rule: ResolvedRule,
@@ -28,6 +35,7 @@ export function buildCacheInput(
     usesFileTree && fileTree
       ? createHash('sha256').update(fileTree).digest('hex').slice(0, 16)
       : '';
+  const scopeQualifiedSymbol = getQualifiedSymbol(scope, rule);
   return {
     ruleId: rule.id,
     ruleVersion: rule.ruleVersion ?? '',
@@ -38,6 +46,7 @@ export function buildCacheInput(
     scopeSignature: scope.signature,
     scopeType: scope.scopeType,
     scopeName: scope.name,
+    ...(scopeQualifiedSymbol ? { scopeQualifiedSymbol } : {}),
     filePath: scope.filePath,
     fileTreeHash,
     ...(mode ? { mode } : {}),

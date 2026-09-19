@@ -28,7 +28,7 @@ const decisionSnapshotSchema = Type.Object(
               id: Type.String(),
               label: Type.String(),
               probability: probabilitySchema,
-              verdict: verdictLabelSchema,
+              verdict: Type.Optional(verdictLabelSchema),
               choice: Type.Optional(
                 Type.Object(
                   {
@@ -41,6 +41,25 @@ const decisionSnapshotSchema = Type.Object(
               ),
             },
             { additionalProperties: false },
+          ),
+        ),
+        concerns: Type.Optional(
+          Type.Array(
+            Type.Object(
+              {
+                id: Type.String(),
+                label: Type.String(),
+                verdict: verdictLabelSchema,
+                probability: probabilitySchema,
+                reason: Type.String(),
+                reasonKind: Type.Union([
+                  Type.Literal('policy_result'),
+                  Type.Literal('insufficient_context'),
+                  Type.Literal('uncertain_observation'),
+                ]),
+              },
+              { additionalProperties: false },
+            ),
           ),
         ),
       },

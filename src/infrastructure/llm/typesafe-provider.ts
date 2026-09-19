@@ -2,8 +2,8 @@ import { Type } from '@sinclair/typebox';
 import { err, ok, ResultAsync, type Result } from 'neverthrow';
 
 import type {
-  ChoiceDecisionDetail,
   ChoiceQuestion,
+  DecisionAnswer,
   DecisionProvider,
   DecisionQuestion,
   DecisionRequest,
@@ -46,10 +46,6 @@ type RawChoiceAnswer = {
   readonly probabilities: Record<string, number>;
 };
 type RawAnswer = RawNoulAnswer | RawChoiceAnswer;
-type NormalizedAnswer = {
-  readonly probability: number;
-  readonly choice?: ChoiceDecisionDetail;
-};
 
 function validateChoiceAnswer(
   question: ChoiceQuestion,
@@ -66,48 +62,27 @@ function validateChoiceAnswer(
     : ok(undefined);
 }
 
-function sumViolationProbability(
-  question: ChoiceQuestion,
-  answer: RawChoiceAnswer,
-): Result<number, Error> {
-  let probability = 0;
-  for (const id of question.violationChoices) {
-    const value = answer.probabilities[id];
-    if (value === undefined) {
-      return err(new Error('TypeSafe Choice answer omits a violation choice.'));
-    }
-    probability += value;
-  }
-  return probability <= 1
-    ? ok(probability)
-    : err(new Error('TypeSafe Choice violation probability exceeds 1.'));
-}
-
 function normalizeChoiceAnswer(
   question: ChoiceQuestion,
   answer: RawChoiceAnswer,
-): Result<NormalizedAnswer, Error> {
-  return validateChoiceAnswer(question, answer).andThen(() =>
-    sumViolationProbability(question, answer).map((probability) => ({
-      probability,
-      choice: {
-        choice: answer.choice,
-        confidence: answer.confidence,
-        probabilities: answer.probabilities,
-      },
-    })),
-  );
+): Result<DecisionAnswer, Error> {
+  return validateChoiceAnswer(question, answer).map(() => ({
+    type: 'choice',
+    choice: answer.choice,
+    confidence: answer.confidence,
+    probabilities: answer.probabilities,
+  }));
 }
 
 function normalizeAnswer(
   question: DecisionQuestion,
   answer: RawAnswer,
-): Result<NormalizedAnswer, Error> {
+): Result<DecisionAnswer, Error> {
   if (question.type === 'choice' && answer.type === 'choice') {
     return normalizeChoiceAnswer(question, answer);
   }
   if (question.type === 'noul' && answer.type === 'noul') {
-    return ok({ probability: answer.noul });
+    return ok({ type: 'noul', probability: answer.noul });
   }
   return err(new Error('TypeSafe answer type does not match the question.'));
 }
@@ -115,18 +90,16 @@ function normalizeAnswer(
 function normalizeAnswers(
   request: DecisionRequest,
   answers: Readonly<Record<string, RawAnswer>>,
-): Result<Pick<DecisionResponse, 'probabilities' | 'choiceDetails'>, Error> {
-  const probabilities: Record<string, number> = {};
-  const choiceDetails: Record<string, ChoiceDecisionDetail> = {};
+): Result<DecisionResponse['answers'], Error> {
+  const normalizedAnswers: Record<string, DecisionAnswer> = {};
   for (const [id, question] of Object.entries(request.questions)) {
     const answer = answers[id];
     if (answer === undefined) return err(new Error(`Missing TypeSafe answer: ${id}.`));
     const normalized = normalizeAnswer(question, answer);
     if (normalized.isErr()) return err(normalized.error);
-    probabilities[id] = normalized.value.probability;
-    if (normalized.value.choice !== undefined) choiceDetails[id] = normalized.value.choice;
+    normalizedAnswers[id] = normalized.value;
   }
-  return ok({ probabilities, choiceDetails });
+  return ok(normalizedAnswers);
 }
 
 export function validateDecisionResponse(
@@ -139,10 +112,9 @@ export function validateDecisionResponse(
     if (ids.length !== expectedIds.length || !expectedIds.every((id) => ids.includes(id))) {
       return err(new Error('TypeSafe answer IDs do not match the questions.'));
     }
-    return normalizeAnswers(request, response.answers).map(({ probabilities, choiceDetails }) => ({
+    return normalizeAnswers(request, response.answers).map((answers) => ({
       model: response.model,
-      probabilities,
-      choiceDetails,
+      answers,
       usage: {
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,

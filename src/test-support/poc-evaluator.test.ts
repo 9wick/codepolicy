@@ -22,6 +22,7 @@ const fixture: PocCase = {
     filePath: 'src/f.ts',
     scopeType: 'function',
     name: 'f',
+    qualifiedSymbol: 'FService#f',
     startLine: 1,
     endLine: 1,
   },
@@ -55,28 +56,36 @@ describe('PoC measurement contracts', () => {
   });
   it('uses the same context for both routes and retains raw observations and model identities', async () => {
     resetAppContainer();
-    const systemOne = vi.fn(async (request: DecisionRequest) => ({
-      model: 'jev-1.13.0',
-      answers: Object.fromEntries(
-        Object.entries(request.questions).map(([id, question]) => [
-          id,
-          question.type === 'choice'
-            ? {
-                type: 'choice',
-                choice: question.violationChoices[0] ?? '',
-                confidence: 0.699,
-                probabilities: Object.fromEntries(
-                  Object.keys(question.criteria).map((choice) => [
-                    choice,
-                    choice === question.violationChoices[0] ? 0.699 : 0,
-                  ]),
-                ),
-              }
-            : { type: 'noul', noul: 0.699 },
-        ]),
-      ),
-      usage: { input_tokens: 10, output_tokens: 3 },
-    }));
+    const systemOne = vi.fn(async (request: DecisionRequest) => {
+      const selected: Readonly<Record<string, string>> = {
+        layer_role: 'internal_layer',
+        external_input_default: 'absent',
+        internal_value_default: 'absent',
+        failure_conversion: 'present',
+      };
+      return {
+        model: 'jev-1.13.0',
+        answers: Object.fromEntries(
+          Object.entries(request.questions).map(([id, question]) => [
+            id,
+            question.type === 'choice'
+              ? {
+                  type: 'choice',
+                  choice: selected[id],
+                  confidence: 0.699,
+                  probabilities: Object.fromEntries(
+                    Object.keys(question.criteria).map((choice) => [
+                      choice,
+                      choice === selected[id] ? 0.699 : 0,
+                    ]),
+                  ),
+                }
+              : { type: 'noul', noul: 0.699 },
+          ]),
+        ),
+        usage: { input_tokens: 10, output_tokens: 3 },
+      };
+    });
     getAppContainer().bind({ provide: CreateDecisionClient, useValue: () => ok({ systemOne }) });
     const evaluate = vi.fn(() =>
       okAsync({ verdict: 'violation', reasoning: 'bad', citations: [] } satisfies RuleVerdict),
@@ -101,16 +110,16 @@ describe('PoC measurement contracts', () => {
       result: {
         responseModel: 'jev-1.13.0',
         result: {
-          verdict: 'borderline',
+          verdict: 'violation',
           observations: expect.arrayContaining([expect.objectContaining({ probability: 0.699 })]),
         },
       },
     });
     const summary = summarizePoc([b, a]);
-    expect(summary).toMatchObject({ total: 2, correct: 1, borderline: 1, errors: 0 });
+    expect(summary).toMatchObject({ total: 2, correct: 2, borderline: 0, errors: 0 });
     expect(summary).toMatchObject({
-      confusion: { violation: { pass: 0, borderline: 1, violation: 1, error: 0 } },
-      borderlineRate: { numerator: 1, denominator: 2, rate: 0.5 },
+      confusion: { violation: { pass: 0, borderline: 0, violation: 2, error: 0 } },
+      borderlineRate: { numerator: 0, denominator: 2, rate: 0 },
       usage: { inputTokens: 10, outputTokens: 3 },
     });
   });

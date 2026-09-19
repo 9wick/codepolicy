@@ -11,6 +11,7 @@ export function computeDecisionRuleVersion(
   const material = JSON.stringify({
     include: definition.include,
     criteria: definition.criteria,
+    policy: definition.policy,
     thresholds,
   });
   return createHash('sha256').update(material).digest('hex');

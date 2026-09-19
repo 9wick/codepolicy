@@ -60,6 +60,14 @@ describe('EvalCacheService.toCacheKey', () => {
     );
   });
 
+  it('produces a different key when the qualified symbol changes', () => {
+    expect(
+      EvalCacheService.toCacheKey({ ...baseInput, scopeQualifiedSymbol: 'First#foo' }).raw,
+    ).not.toBe(
+      EvalCacheService.toCacheKey({ ...baseInput, scopeQualifiedSymbol: 'Second#foo' }).raw,
+    );
+  });
+
   it('produces a different key when ruleVersion changes', () => {
     expect(EvalCacheService.toCacheKey(baseInput).raw).not.toBe(
       EvalCacheService.toCacheKey({ ...baseInput, ruleVersion: 'v2-hash' }).raw,

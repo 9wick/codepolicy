@@ -24,12 +24,7 @@ export function evaluateDecision(
   if (request.isErr()) return errAsync(request.error);
   const start = performance.now();
   return provider.ask(request.value).andThen((response) =>
-    composeDecisionVerdict(
-      definition.criteria,
-      response.probabilities,
-      thresholds,
-      response.choiceDetails,
-    ).map((result) => ({
+    composeDecisionVerdict(definition, response.answers, thresholds).map((result) => ({
       result,
       requestedModel: model,
       responseModel: response.model,

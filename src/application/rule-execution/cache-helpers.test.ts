@@ -11,6 +11,7 @@ const baseScope: ScopeUnit = {
   filePath: 'src/foo.ts',
   scopeType: 'function',
   name: 'foo',
+  qualifiedSymbol: 'Foo#foo',
   code: 'function foo() { return 1; }',
   startLine: 1,
   endLine: 1,
@@ -49,9 +50,10 @@ describe('buildCacheInput', () => {
       borderline: 'warn',
       definition,
     };
-    expect(buildCacheInput(baseScope, rule, 'tree-a', undefined)).toEqual(
-      buildCacheInput(baseScope, rule, 'tree-b', undefined),
-    );
+    const withoutTreeA = buildCacheInput(baseScope, rule, 'tree-a', undefined);
+    const withoutTreeB = buildCacheInput(baseScope, rule, 'tree-b', undefined);
+    expect(withoutTreeA).toEqual(withoutTreeB);
+    expect(withoutTreeA.scopeQualifiedSymbol).toBe('Foo#foo');
     const withTree: ResolvedDecisionRule = {
       ...rule,
       definition: { ...definition, include: ['source', 'fileTree'] },
