@@ -19,5 +19,11 @@ describe('decision rule test selection', () => {
     expect(checks.map((check) => check.name)).toContain(
       'baseline: no-implicit-fallback/development/legacy-invalid-1',
     );
+    expect(listDecisionRuleChecks(suite, 'baseline')).toEqual(
+      checks.filter((check) => check.target === 'baseline'),
+    );
+    expect(listDecisionRuleChecks(suite, 'Jev')).toEqual(
+      checks.filter((check) => check.target === 'Jev'),
+    );
   });
 });

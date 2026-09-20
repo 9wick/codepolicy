@@ -30,10 +30,8 @@ function setup() {
   const lookup = vi.spyOn(store, 'lookup');
   const save = vi.spyOn(store, 'save');
   const selectedChoice = (id: string, choices: Readonly<Record<string, string>>): string => {
-    if (id === 'layer_role') return 'internal_layer';
-    if (id === 'external_input_default') return 'absent';
-    if (id === 'internal_value_default') return 'present';
-    if (id === 'failure_conversion') return 'absent';
+    if (id === 'ambiguous_input_handling') return 'preserved_or_absent';
+    if (id === 'failure_handling') return 'meaning_lost';
     return Object.keys(choices)[0] ?? '';
   };
   const systemOne = vi.fn(async (request: DecisionRequest) => ({

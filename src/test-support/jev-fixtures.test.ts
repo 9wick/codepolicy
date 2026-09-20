@@ -3,15 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { pocSuites } from './jev-fixtures';
 
 describe('fixed Jev comparison fixtures', () => {
-  it('has five rules with 6 development and 4 held-out cases, balanced in each split', () => {
+  it('preserves the five corpora, including restored no-fallback cases, balanced in each split', () => {
     expect(pocSuites).toHaveLength(5);
     const cases = pocSuites.flatMap((suite) => suite.cases);
-    expect(cases).toHaveLength(50);
-    expect(new Set(cases.map((item) => item.id)).size).toBe(50);
+    expect(cases).toHaveLength(52);
+    expect(new Set(cases.map((item) => item.id)).size).toBe(52);
     for (const suite of pocSuites) {
       expect(suite.decision.id).toBe(`jev-${suite.baseline.id}`);
       for (const [split, count] of [
-        ['development', 3],
+        ['development', suite.baseline.id === 'no-implicit-fallback' ? 4 : 3],
         ['evaluation', 2],
       ] satisfies ['development' | 'evaluation', number][]) {
         for (const expected of ['pass', 'violation']) {

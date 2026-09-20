@@ -53,7 +53,14 @@ describe('buildCacheInput', () => {
     const withoutTreeA = buildCacheInput(baseScope, rule, 'tree-a', undefined);
     const withoutTreeB = buildCacheInput(baseScope, rule, 'tree-b', undefined);
     expect(withoutTreeA).toEqual(withoutTreeB);
-    expect(withoutTreeA.scopeQualifiedSymbol).toBe('Foo#foo');
+    expect(withoutTreeA.scopeQualifiedSymbol).toBeUndefined();
+    const withSymbol: ResolvedDecisionRule = {
+      ...rule,
+      definition: { ...definition, include: ['source', 'qualifiedSymbol'] },
+    };
+    expect(buildCacheInput(baseScope, withSymbol, undefined, undefined).scopeQualifiedSymbol).toBe(
+      'Foo#foo',
+    );
     const withTree: ResolvedDecisionRule = {
       ...rule,
       definition: { ...definition, include: ['source', 'fileTree'] },

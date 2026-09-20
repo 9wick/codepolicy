@@ -29,6 +29,27 @@ const fixture: PocCase = {
 };
 
 describe('PoC measurement contracts', () => {
+  it('counts expected authority deferrals without confusing them with pass or violation', async () => {
+    const rule: RegisteredRule = {
+      id: 'deferred',
+      definition: {
+        meta: { scope: 'function' },
+        create: () =>
+          okAsync(() =>
+            okAsync({ verdict: 'borderline', reasoning: 'authority unset', citations: [] }),
+          ),
+      },
+    };
+    const record = (
+      await evaluatePocCase({ ...fixture, expected: 'borderline' }, rule, 'unused')
+    )._unsafeUnwrap();
+    expect(summarizePoc([record])).toMatchObject({
+      total: 1,
+      correct: 1,
+      confusion: { borderline: { pass: 0, borderline: 1, violation: 0, error: 0 } },
+      borderlineRate: { numerator: 1, denominator: 1, rate: 1 },
+    });
+  });
   it('uses shared evaluation with caching explicitly disabled on every measurement', async () => {
     resetAppContainer();
     const lookup = vi.fn(() => okAsync({ kind: 'miss' } satisfies LookupOutcome));
@@ -58,10 +79,8 @@ describe('PoC measurement contracts', () => {
     resetAppContainer();
     const systemOne = vi.fn(async (request: DecisionRequest) => {
       const selected: Readonly<Record<string, string>> = {
-        layer_role: 'internal_layer',
-        external_input_default: 'absent',
-        internal_value_default: 'absent',
-        failure_conversion: 'present',
+        ambiguous_input_handling: 'preserved_or_absent',
+        failure_handling: 'meaning_lost',
       };
       return {
         model: 'jev-1.13.0',

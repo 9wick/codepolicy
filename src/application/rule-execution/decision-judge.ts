@@ -373,7 +373,7 @@ export function toDisplayVerdict(result: DecisionVerdict): RuleVerdict {
   }
   if (result.concerns !== undefined) {
     const details = result.concerns
-      .filter((item) => item.verdict === result.verdict)
+      .filter((item) => item.verdict !== 'pass')
       .map(formatConcern)
       .join('; ');
     return { verdict: result.verdict, reasoning: `Jev判定: ${details}`, citations: [] };

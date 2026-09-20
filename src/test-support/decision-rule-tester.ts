@@ -16,15 +16,19 @@ export type DecisionRuleCheck = {
   readonly testCase: PocSuite['cases'][number];
 };
 
-export function listDecisionRuleChecks(suite: PocSuite): readonly DecisionRuleCheck[] {
-  return suite.cases.flatMap((testCase) => [
+export function listDecisionRuleChecks(
+  suite: PocSuite,
+  target?: DecisionRuleCheck['target'],
+): readonly DecisionRuleCheck[] {
+  const checks: readonly DecisionRuleCheck[] = suite.cases.flatMap((testCase) => [
     { name: `Jev: ${testCase.id}`, target: 'Jev', testCase },
     { name: `baseline: ${testCase.id}`, target: 'baseline', testCase },
   ]);
+  return target === undefined ? checks : checks.filter((check) => check.target === target);
 }
 
-export function decisionRuleTester(suite: PocSuite): void {
-  for (const check of listDecisionRuleChecks(suite)) {
+export function decisionRuleTester(suite: PocSuite, target?: DecisionRuleCheck['target']): void {
+  for (const check of listDecisionRuleChecks(suite, target)) {
     it(check.name, async () => {
       const rule = check.target === 'Jev' ? suite.decision : suite.baseline;
       const model = check.target === 'Jev' ? CODEPOLICY_TEST_JEV_MODEL : CODEPOLICY_TEST_AGENT;

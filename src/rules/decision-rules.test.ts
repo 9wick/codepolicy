@@ -83,23 +83,21 @@ describe('Jev built-in rule contracts', () => {
     ]);
   });
 
-  it('declares three observations separately from two no-fallback concerns', () => {
+  it('declares two independent meaning observations without a layer classifier', () => {
     const noFallback = builtinDecisionRules.find((r) => r.id === 'jev-no-implicit-fallback');
     expect(noFallback?.definition.criteria.map((criterion) => criterion.id)).toEqual([
-      'layer_role',
-      'external_input_default',
-      'internal_value_default',
-      'failure_conversion',
+      'ambiguous_input_handling',
+      'failure_handling',
     ]);
-    expect(noFallback?.definition.include).toContain('qualifiedSymbol');
+    expect(noFallback?.definition.include).not.toContain('qualifiedSymbol');
     expect(
       noFallback?.definition.criteria.every(
         (criterion) => criterion.type === 'choice' && criterion.violationChoices === undefined,
       ),
     ).toBe(true);
     expect(noFallback?.definition.policy?.concerns.map((concern) => concern.id)).toEqual([
-      'absence_normalization',
-      'failure_conversion',
+      'input_meaning',
+      'failure_meaning',
     ]);
   });
 });

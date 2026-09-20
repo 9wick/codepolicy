@@ -2,6 +2,21 @@ import type { PocCase } from '../poc-evaluator';
 
 export const cases: readonly PocCase[] = [
   {
+    id: 'no-implicit-fallback/development/legacy-valid-1',
+    split: 'development',
+    expected: 'pass',
+    expectationReason: 'should pass when function uses no implicit fallback',
+    context: {
+      source:
+        "function processOrder(order: Order): Receipt {\n  if (order.items.length === 0) {\n    throw new Error('order must contain at least one item');\n  }\n  const total = order.items.reduce((sum, item) => sum + item.price, 0);\n  return new Receipt(order.id, total);\n}",
+      filePath: 'src/services/order.service.ts',
+      scopeType: 'function',
+      name: 'processOrder',
+      startLine: 1,
+      endLine: 7,
+    },
+  },
+  {
     id: 'no-implicit-fallback/development/legacy-invalid-1',
     split: 'development',
     expected: 'violation',
@@ -62,6 +77,21 @@ export const cases: readonly PocCase[] = [
       scopeType: 'function',
       name: 'parsePageSize',
       qualifiedSymbol: 'QueryController#parsePageSize',
+      startLine: 1,
+      endLine: 1,
+    },
+  },
+  {
+    id: 'no-implicit-fallback/development/additional-3',
+    split: 'development',
+    expected: 'violation',
+    expectationReason: '未確定の業務値を正常な割引率0へ置き換えている。',
+    context: {
+      source:
+        'function discount(customer: Partial<Customer>): number { return customer.discountRate || 0; }',
+      filePath: 'src/domain/pricing.ts',
+      scopeType: 'function',
+      name: 'discount',
       startLine: 1,
       endLine: 1,
     },
