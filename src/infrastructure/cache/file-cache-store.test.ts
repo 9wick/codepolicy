@@ -15,7 +15,29 @@ const decision: DecisionSnapshot = {
   result: {
     verdict: 'pass',
     thresholds: { passMax: 0.3, violationMin: 0.7 },
-    observations: [{ id: 'criterion', label: 'Label', probability: 0.123456, verdict: 'pass' }],
+    observations: [
+      {
+        id: 'criterion',
+        label: 'Label',
+        probability: 0.123456,
+        verdict: 'pass',
+        choice: {
+          choice: 'allowed',
+          confidence: 0.88,
+          probabilities: { violation: 0.123456, allowed: 0.876544 },
+        },
+      },
+    ],
+    concerns: [
+      {
+        id: 'fallback',
+        label: 'Fallback',
+        verdict: 'pass',
+        probability: 0.876544,
+        reason: 'Allowed by contract',
+        reasonKind: 'policy_result',
+      },
+    ],
   },
 };
 

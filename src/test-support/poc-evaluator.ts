@@ -16,7 +16,7 @@ import type { RuleVerdict, TokenUsage, VerdictLabel } from '../shared/types';
 export type PocCase = {
   readonly id: string;
   readonly split: 'development' | 'evaluation';
-  readonly expected: 'pass' | 'violation';
+  readonly expected: VerdictLabel;
   readonly expectationReason: string;
   readonly context: ScopeContext;
 };
@@ -68,6 +68,7 @@ function evaluate(
           code: ctx.source,
           scopeType: ctx.scopeType,
           name: ctx.name,
+          qualifiedSymbol: ctx.qualifiedSymbol ?? ctx.name,
           signature: ctx.signature,
           startLine: ctx.startLine,
           endLine: ctx.endLine,
@@ -175,16 +176,18 @@ function measurementDetails(records: readonly PocRecord[]) {
   const expectedViolation = records.filter((r) => r.expected === 'violation');
   const pass = verdictCounts(expectedPass);
   const violation = verdictCounts(expectedViolation);
+  const borderline = verdictCounts(records.filter((r) => r.expected === 'borderline'));
+  const totals = verdictCounts(records);
   const usages = records.flatMap((r) => {
     if (r.outcome.kind === 'error') return [];
     return [r.outcome.kind === 'decision' ? r.outcome.result.usage : r.outcome.usage];
   });
   return {
-    confusion: { pass, violation },
+    confusion: { pass, violation, borderline },
     falsePositiveRate: ratio(pass.violation, expectedPass.length),
     falseNegativeRate: ratio(violation.pass, expectedViolation.length),
-    borderlineRate: ratio(pass.borderline + violation.borderline, records.length),
-    errorRate: ratio(pass.error + violation.error, records.length),
+    borderlineRate: ratio(totals.borderline, records.length),
+    errorRate: ratio(totals.error, records.length),
     usage: {
       inputTokens: usages.reduce((sum, usage) => sum + usage.inputTokens, 0),
       outputTokens: usages.reduce((sum, usage) => sum + usage.outputTokens, 0),

@@ -10,7 +10,7 @@ import { ConfigLoader } from '../../application/config/config-loader.service';
 import { CacheStoreToken } from '../../infrastructure/cache/cache-store';
 import { createFileCacheStore } from '../../infrastructure/cache/file-cache-store';
 import { CreateDecisionClient } from '../../infrastructure/llm/typesafe-client';
-import type { NoulRequest } from '../../shared/decision-types';
+import type { DecisionRequest } from '../../shared/decision-types';
 import { createTestContainer } from '../../test-support/test-container';
 
 import command from './rule-run.command';
@@ -29,12 +29,29 @@ function setup() {
   const store = createFileCacheStore(cacheRoot);
   const lookup = vi.spyOn(store, 'lookup');
   const save = vi.spyOn(store, 'save');
-  const systemOne = vi.fn(async (request: NoulRequest) => ({
+  const selectedChoice = (id: string, choices: Readonly<Record<string, string>>): string => {
+    if (id === 'ambiguous_input_handling') return 'preserved_or_absent';
+    if (id === 'failure_handling') return 'meaning_lost';
+    return Object.keys(choices)[0] ?? '';
+  };
+  const systemOne = vi.fn(async (request: DecisionRequest) => ({
     model: 'jev-1.0.0',
     answers: Object.fromEntries(
-      Object.keys(request.questions).map((id, index) => [
+      Object.entries(request.questions).map(([id, question], index) => [
         id,
-        { type: 'noul', noul: index === 0 ? 0.91 : 0.1 },
+        question.type === 'choice'
+          ? {
+              type: 'choice',
+              choice: selectedChoice(id, question.criteria),
+              confidence: 0.91,
+              probabilities: Object.fromEntries(
+                Object.keys(question.criteria).map((choice) => [
+                  choice,
+                  choice === selectedChoice(id, question.criteria) ? 0.91 : 0,
+                ]),
+              ),
+            }
+          : { type: 'noul', noul: index === 0 ? 0.91 : 0.1 },
       ]),
     ),
     usage: { input_tokens: 20, output_tokens: 3 },

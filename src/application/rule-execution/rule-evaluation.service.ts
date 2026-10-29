@@ -49,6 +49,7 @@ function toScopeContext(scope: ScopeUnit, fileTree: string | undefined): ScopeCo
     filePath: scope.filePath,
     scopeType: scope.scopeType,
     name: scope.name,
+    qualifiedSymbol: scope.qualifiedSymbol ?? scope.name,
     signature: scope.signature,
     fileTree,
     startLine: scope.startLine,

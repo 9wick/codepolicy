@@ -14,4 +14,5 @@ ignore:
   - dist/**
   - '**/*.test.ts'
   - src/test-support/**
+  - src/rules/rule-tester.ts
   - tools/**

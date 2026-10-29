@@ -18,6 +18,9 @@ export const commonConfig = defineConfig({
     CODEPOLICY_TEST_JEV_MODEL: JSON.stringify(
       process.env['CODEPOLICY_TEST_JEV_MODEL'] ?? 'typesafe-jev-1.13.0',
     ),
+    CODEPOLICY_TEST_REPORT_DECISIONS: JSON.stringify(
+      process.env['CODEPOLICY_TEST_REPORT_DECISIONS'] === '1',
+    ),
   },
   test: {
     setupFiles: ['./vitest.setup.ts'],

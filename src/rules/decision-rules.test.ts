@@ -1,7 +1,7 @@
 import { okAsync } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { validateCriteria } from '../application/rule-execution/decision-validation';
+import { validateDecisionDefinition } from '../application/rule-execution/decision-validation';
 import { createTestContainer } from '../test-support/test-container';
 
 import { builtinRules } from './builtin-rules';
@@ -67,7 +67,7 @@ describe('Jev built-in rule contracts', () => {
 
   it('uses complete unique questions and allows caching for every Jev rule', () => {
     for (const rule of builtinDecisionRules) {
-      expect(validateCriteria(rule.definition.criteria).isOk()).toBe(true);
+      expect(validateDecisionDefinition(rule.definition).isOk()).toBe(true);
       expect(rule.definition.meta.cacheable).not.toBe(false);
       expect(rule.definition.include).toContain('source');
     }
@@ -80,6 +80,25 @@ describe('Jev built-in rule contracts', () => {
     expect(placement?.definition.criteria.map((c) => c.id)).toEqual([
       'misplaced_responsibility',
       'wrong_layer',
+    ]);
+  });
+
+  it('declares independent meaning observations and a policy role without a layer classifier', () => {
+    const noFallback = builtinDecisionRules.find((r) => r.id === 'jev-no-implicit-fallback');
+    expect(noFallback?.definition.criteria.map((criterion) => criterion.id)).toEqual([
+      'ambiguous_input_handling',
+      'failure_handling',
+      'input_policy_role',
+    ]);
+    expect(noFallback?.definition.include).not.toContain('qualifiedSymbol');
+    expect(
+      noFallback?.definition.criteria.every(
+        (criterion) => criterion.type === 'choice' && criterion.violationChoices === undefined,
+      ),
+    ).toBe(true);
+    expect(noFallback?.definition.policy?.concerns.map((concern) => concern.id)).toEqual([
+      'input_meaning',
+      'failure_meaning',
     ]);
   });
 });

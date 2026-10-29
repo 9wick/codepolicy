@@ -17,16 +17,18 @@ bun run dev rule run jev-no-implicit-fallback samples/jev/fallback.ts --config .
 ## 比較測定
 
 ```bash
-# API・ファイル書き込みなし。5ルール、50ケース、300評価になることを確認
+# API・ファイル書き込みなし。5ルール、52ケース、312評価になることを確認
 bun run benchmark:jev --check
 
 # APIを呼ぶ。比較用OpenCodeの利用環境も必要
 bun run benchmark:jev --jev-model typesafe-jev-1.13.0 --text-model openai/gpt-5.4
 ```
 
-モデル名は設定例であり、利用アカウントでの提供状況は実APIで確認する。Jevモデルの版固定を必須とし、latestは比較測定で拒否する。各ケースを既存・Jevの両経路で3回、concurrency=1、共通評価処理に `noCache: true` を明示して実行する。通常lint・`rule run` の既定とは異なり、測定時は毎回推論する。300評価であり、既存ルールの検証用追加呼び出しによりAPIリクエスト数はそれを超える。時間とAPI費用がかかる。
+モデル名は設定例であり、利用アカウントでの提供状況は実APIで確認する。Jevモデルの版固定を必須とし、latestは比較測定で拒否する。各ケースを既存・Jevの両経路で3回、concurrency=1、共通評価処理に `noCache: true` を明示して実行する。通常lint・`rule run` の既定とは異なり、測定時は毎回推論する。312評価であり、既存ルールの検証用追加呼び出しによりAPIリクエスト数はそれを超える。時間とAPI費用がかかる。
 
-入力は `src/test-support/jev-fixtures/`。各ルールに調整用6件と評価用4件、各群でpass/violation同数。現行の既存18ケースを調整用に含め、新規32ケースを追加した。各ケースには期待理由がある。期待値はまだ人手レビュー・実API評価を経ていない初期仮説。結果を見て正解ラベルを変更しない。評価用ケースで調整したら、新しい未使用の評価用ケースを用意する。
+入力は `src/test-support/jev-fixtures/`。no-implicit-fallbackは過去に差し替えられた2件を復旧し、調整用8件と評価用4件。他4ルールは調整用6件と評価用4件のまま。各群でpass/violation同数、合計52件。各ケースには期待理由があり、結果に合わせて正解ラベルを変更したりケースを除外したりしない。既に調整に使った評価用ケースは未使用holdoutとは扱わず、回帰用として残す。
+
+no-implicit-fallbackの独立2問を検証する意味論12件は、上記の比較測定とは別に `rule.test.ts` へ登録している。Jevの回帰対象は旧12件＋意味論12件の計24件で、旧12件をbaseline専用にしない。復旧元・固定方法は[fixture復旧記録](2026-09-20-no-implicit-fallback-fixture-restoration.md)を参照。部分実行の結果と全件回帰の結果を分け、方式間の比較には同一のケース集合・入力・期待値を使う。
 
 両経路は同じScopeContext（source・filePath・name・fileTree等）を受け取る。fixtureのsignatureは省略し、両経路ともsourceに記載されたシグネチャを読む。既存の`ssot-placement`とは判定観点が完全同一ではない。Jev版はパス／layerと責務の不一致だけを調べ、兄弟関数との凝集度は調べない。
 
@@ -40,7 +42,7 @@ bun run benchmark:jev --jev-model typesafe-jev-1.13.0 --text-model openai/gpt-5.
 
 完走時に隣の `.jsonl.md` へルール・モデル・split別の正答数、誤検出、見逃し、precision/recall、保留数、エラー数、p50/p95所要時間、3回の判定が揺れたケース数を保存する。保留・エラーも総件数に含める。precisionは違反判定数、recallは期待違反数を分母とする。エラーがあれば終了コード1。中断時も保存済みの行は残る。
 
-生データを見て、ルールごとに「次の実験へ進む／質問を見直す／用途に不適」を判断する。数値が低くても再現可能な限界が分かればPoCの知見となる。50ケースで本番採用の判断はしない。
+生データを見て、ルールごとに「次の実験へ進む／質問を見直す／用途に不適」を判断する。数値が低くても再現可能な限界が分かればPoCの知見となる。52ケースで本番採用の判断はしない。
 
 ## テスト
 

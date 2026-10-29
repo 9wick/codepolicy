@@ -1,18 +1,18 @@
 import { Type } from '@sinclair/typebox';
 import { describe, expect, it } from 'vitest';
 
-import type { NoulRequest, NoulResponse } from '../shared/decision-types';
+import type { DecisionRequest, DecisionResponse } from '../shared/decision-types';
 
 import { expectDecisionContract, expectStructuredContract } from './provider-contract';
 
-const request: NoulRequest = {
+const request: DecisionRequest = {
   model: 'jev-1.13.0',
   state: { value: '2' },
   questions: { check: { type: 'noul', instructions: 'The value equals 2.' } },
 };
-const response: NoulResponse = {
+const response: DecisionResponse = {
   model: 'jev-1.13.0',
-  probabilities: { check: 0.5 },
+  answers: { check: { type: 'noul', probability: 0.5 } },
   usage: {
     inputTokens: 1,
     outputTokens: 1,
@@ -22,13 +22,13 @@ const response: NoulResponse = {
   },
 };
 const schema = Type.Object({ status: Type.Literal('ok') });
-const invalidProbabilities: Readonly<Record<string, number>>[] = [
+const invalidAnswers: readonly DecisionResponse['answers'][] = [
   {},
-  { check: 0.5, extra: 0 },
-  { check: -0.1 },
-  { check: 1.1 },
-  { check: NaN },
-  { check: Infinity },
+  { check: { type: 'noul', probability: 0.5 }, extra: { type: 'noul', probability: 0 } },
+  { check: { type: 'noul', probability: -0.1 } },
+  { check: { type: 'noul', probability: 1.1 } },
+  { check: { type: 'noul', probability: NaN } },
+  { check: { type: 'noul', probability: Infinity } },
 ];
 
 describe('shared provider contract assertions', () => {
@@ -36,16 +36,16 @@ describe('shared provider contract assertions', () => {
     'accepts a valid decision response without assuming accuracy: %s',
     (probability) => {
       expect(() =>
-        expectDecisionContract(request, { ...response, probabilities: { check: probability } }),
+        expectDecisionContract(request, {
+          ...response,
+          answers: { check: { type: 'noul', probability } },
+        }),
       ).not.toThrow();
     },
   );
-  it.each(invalidProbabilities)(
-    'rejects missing/extra IDs or invalid probabilities: %j',
-    (probabilities) => {
-      expect(() => expectDecisionContract(request, { ...response, probabilities })).toThrow();
-    },
-  );
+  it.each(invalidAnswers)('rejects missing/extra IDs or invalid probabilities: %j', (answers) => {
+    expect(() => expectDecisionContract(request, { ...response, answers })).toThrow();
+  });
   it('rejects an empty response model', () => {
     expect(() => expectDecisionContract(request, { ...response, model: '' })).toThrow();
   });

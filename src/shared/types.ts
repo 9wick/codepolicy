@@ -73,6 +73,7 @@ export type ScopeUnit = {
   filePath: string;
   scopeType: RuleScope;
   name: string;
+  qualifiedSymbol?: string;
   code: string;
   signature?: string;
   isExported?: boolean;

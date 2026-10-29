@@ -7,7 +7,7 @@ import { CacheStoreToken, type LookupOutcome } from '../infrastructure/cache/cac
 import type { RegisteredRule } from '../rules/decision-rule-types';
 import definition from '../rules/jev-no-implicit-fallback/rule';
 import { resetAppContainer, getAppContainer } from '../shared/container';
-import type { NoulRequest } from '../shared/decision-types';
+import type { DecisionRequest } from '../shared/decision-types';
 import type { RuleVerdict } from '../shared/types';
 
 import { evaluatePocCase, summarizePoc, type PocCase } from './poc-evaluator';
@@ -22,12 +22,34 @@ const fixture: PocCase = {
     filePath: 'src/f.ts',
     scopeType: 'function',
     name: 'f',
+    qualifiedSymbol: 'FService#f',
     startLine: 1,
     endLine: 1,
   },
 };
 
 describe('PoC measurement contracts', () => {
+  it('counts expected authority deferrals without confusing them with pass or violation', async () => {
+    const rule: RegisteredRule = {
+      id: 'deferred',
+      definition: {
+        meta: { scope: 'function' },
+        create: () =>
+          okAsync(() =>
+            okAsync({ verdict: 'borderline', reasoning: 'authority unset', citations: [] }),
+          ),
+      },
+    };
+    const record = (
+      await evaluatePocCase({ ...fixture, expected: 'borderline' }, rule, 'unused')
+    )._unsafeUnwrap();
+    expect(summarizePoc([record])).toMatchObject({
+      total: 1,
+      correct: 1,
+      confusion: { borderline: { pass: 0, borderline: 1, violation: 0, error: 0 } },
+      borderlineRate: { numerator: 1, denominator: 1, rate: 1 },
+    });
+  });
   it('uses shared evaluation with caching explicitly disabled on every measurement', async () => {
     resetAppContainer();
     const lookup = vi.fn(() => okAsync({ kind: 'miss' } satisfies LookupOutcome));
@@ -55,13 +77,35 @@ describe('PoC measurement contracts', () => {
   });
   it('uses the same context for both routes and retains raw observations and model identities', async () => {
     resetAppContainer();
-    const systemOne = vi.fn(async (request: NoulRequest) => ({
-      model: 'jev-1.13.0',
-      answers: Object.fromEntries(
-        Object.keys(request.questions).map((id) => [id, { type: 'noul', noul: 0.699 }]),
-      ),
-      usage: { input_tokens: 10, output_tokens: 3 },
-    }));
+    const systemOne = vi.fn(async (request: DecisionRequest) => {
+      const selected: Readonly<Record<string, string>> = {
+        ambiguous_input_handling: 'preserved_or_absent',
+        failure_handling: 'meaning_lost',
+        input_policy_role: 'unclear',
+      };
+      return {
+        model: 'jev-1.13.0',
+        answers: Object.fromEntries(
+          Object.entries(request.questions).map(([id, question]) => [
+            id,
+            question.type === 'choice'
+              ? {
+                  type: 'choice',
+                  choice: selected[id],
+                  confidence: 0.699,
+                  probabilities: Object.fromEntries(
+                    Object.keys(question.criteria).map((choice) => [
+                      choice,
+                      choice === selected[id] ? 0.699 : 0,
+                    ]),
+                  ),
+                }
+              : { type: 'noul', noul: 0.699 },
+          ]),
+        ),
+        usage: { input_tokens: 10, output_tokens: 3 },
+      };
+    });
     getAppContainer().bind({ provide: CreateDecisionClient, useValue: () => ok({ systemOne }) });
     const evaluate = vi.fn(() =>
       okAsync({ verdict: 'violation', reasoning: 'bad', citations: [] } satisfies RuleVerdict),
@@ -86,16 +130,16 @@ describe('PoC measurement contracts', () => {
       result: {
         responseModel: 'jev-1.13.0',
         result: {
-          verdict: 'borderline',
+          verdict: 'violation',
           observations: expect.arrayContaining([expect.objectContaining({ probability: 0.699 })]),
         },
       },
     });
     const summary = summarizePoc([b, a]);
-    expect(summary).toMatchObject({ total: 2, correct: 1, borderline: 1, errors: 0 });
+    expect(summary).toMatchObject({ total: 2, correct: 2, borderline: 0, errors: 0 });
     expect(summary).toMatchObject({
-      confusion: { violation: { pass: 0, borderline: 1, violation: 1, error: 0 } },
-      borderlineRate: { numerator: 1, denominator: 2, rate: 0.5 },
+      confusion: { violation: { pass: 0, borderline: 0, violation: 2, error: 0 } },
+      borderlineRate: { numerator: 0, denominator: 2, rate: 0 },
       usage: { inputTokens: 10, outputTokens: 3 },
     });
   });

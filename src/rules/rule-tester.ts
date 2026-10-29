@@ -75,6 +75,7 @@ function makeScopeContext(testCase: TestCase, rule: RuleDefinition): ScopeContex
     filePath: testCase.filePath ?? 'test.ts',
     scopeType,
     name: testCase.scopeName ?? 'testTarget',
+    qualifiedSymbol: testCase.scopeName ?? 'testTarget',
     signature: extractSignatureFromCode(testCase.code),
     fileTree: testCase.fileTree,
     startLine: 1,

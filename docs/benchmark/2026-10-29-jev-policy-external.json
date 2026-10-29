@@ -1,0 +1,110 @@
+[
+  {
+    "id": "sql-count-failure",
+    "expected": "violation",
+    "reason": "DB障害を件数0の成功にしている",
+    "filePath": "plugins/plugin-sql/src/base.ts",
+    "source": "  async countAgents(): Promise<number> {\n    return this.withDatabase(async () => {\n      try {\n        const result = await this.db.select({ count: count() }).from(agentTable);\n\n        const result0 = result[0];\n        return result0?.count || 0;\n      } catch (error) {\n        logger.error(\n          {\n            src: \"plugin:sql\",\n            error: error instanceof Error ? error.message : String(error),\n          },\n          \"Failed to count agents\"\n        );\n        return 0;\n      }\n    });\n  }",
+    "sourceUrl": "https://github.com/elizaOS/eliza/blob/8a2b993/plugins/plugin-sql/src/base.ts#L899-L917",
+    "sourceFileSha256": "b7a9e7e626c237d0e0a9ea51d96c8e71eee5cbe00a10a120d149c54e5e2b30dd"
+  },
+  {
+    "id": "sql-create-entities-failure",
+    "expected": "violation",
+    "reason": "DB挿入失敗をID配列[]の成功にしている",
+    "filePath": "plugins/plugin-sql/src/base.ts",
+    "source": "  async createEntities(entities: Entity[]): Promise<UUID[]> {\n    return this.withDatabase(async () => {\n      // Pre-assign IDs so duplicates (by id) can be reported as\n      // already-created → success (idempotent create; see ON CONFLICT below).\n      const normalizedEntities = entities.map((entity) => {\n        const { names, metadata, ...normalizedEntity } = entity as Entity & {\n          names?: unknown;\n          metadata?: Metadata;\n        };\n        const id = (entity.id || v4()) as UUID;\n        return {\n          ...normalizedEntity,\n          id,\n          agentId: this.agentId,\n          names: this.normalizeEntityNames(names),\n          metadata: metadata || {},\n        };\n      });\n\n      try {\n        // ON CONFLICT DO NOTHING keeps the create idempotent per row: rows\n        // whose id already exists are skipped (never clobbered — that's\n        // upsertEntities' job) while the rest of the batch still lands. The\n        // previous catch-on-duplicate approach rolled back the whole batch and\n        // then claimed success for entities that were never written. Both of\n        // entityTable's unique constraints (PK id, unique(id, agentId)) are\n        // id-based, so any conflict here is a duplicate id.\n        const inserted = await this.db\n          .insert(entityTable)\n          .values(normalizedEntities)\n          .onConflictDoNothing()\n          .returning();\n        if (inserted.length < normalizedEntities.length) {\n          logger.warn(\n            {\n              src: \"plugin:sql\",\n              requested: normalizedEntities.length,\n              inserted: inserted.length,\n            },\n            \"Some entities already existed; treating them as created\"\n          );\n        }\n        return normalizedEntities.map((entity) => entity.id as UUID);\n      } catch (error) {\n        logger.error(\n          {\n            src: \"plugin:sql\",\n            entityId: entities[0]?.id,\n            error: error instanceof Error ? error.message : String(error),\n          },\n          \"Failed to create entities\"\n        );\n        return [];\n      }\n    });\n  }",
+    "sourceUrl": "https://github.com/elizaOS/eliza/blob/8a2b993/plugins/plugin-sql/src/base.ts#L1043-L1098",
+    "sourceFileSha256": "b7a9e7e626c237d0e0a9ea51d96c8e71eee5cbe00a10a120d149c54e5e2b30dd"
+  },
+  {
+    "id": "media-read-failure",
+    "expected": "violation",
+    "reason": "ファイル読取失敗をファイル不在nullと区別できなくする",
+    "filePath": "packages/agent/src/api/media-store.ts",
+    "source": "export function readStoredMediaBytes(fileName: string): Buffer | null {\n  const filePath = path.join(mediaDir(), fileName);\n  if (path.dirname(filePath) !== mediaDir()) return null;\n  try {\n    return fs.existsSync(filePath) ? fs.readFileSync(filePath) : null;\n  } catch {\n    return null;\n  }\n}",
+    "sourceUrl": "https://github.com/elizaOS/eliza/blob/8a2b993/packages/agent/src/api/media-store.ts#L319-L327",
+    "sourceFileSha256": "eaa148001b9503a16fe65e13a05e814c0d5462932caa3292e5f762d3a9ab15a3"
+  },
+  {
+    "id": "media-write-failure-boolean",
+    "expected": "pass",
+    "reason": "書込失敗は戻り値falseで呼び出し元へ伝わる",
+    "filePath": "packages/agent/src/api/media-store.ts",
+    "source": "export function writeStoredMediaFile(fileName: string, bytes: Buffer): boolean {\n  const filePath = path.join(mediaDir(), fileName);\n  if (path.dirname(filePath) !== mediaDir()) return false;\n  try {\n    fs.mkdirSync(mediaDir(), { recursive: true });\n    if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, bytes);\n    return true;\n  } catch {\n    return false;\n  }\n}",
+    "sourceUrl": "https://github.com/elizaOS/eliza/blob/8a2b993/packages/agent/src/api/media-store.ts#L334-L344",
+    "sourceFileSha256": "eaa148001b9503a16fe65e13a05e814c0d5462932caa3292e5f762d3a9ab15a3"
+  },
+  {
+    "id": "json-parse-probe",
+    "expected": "pass",
+    "reason": "不正な入力をnullという明示的な無効結果で返す",
+    "filePath": "packages/core/src/runtime/json-output.ts",
+    "source": "function parseObjectCandidate<T extends object>(candidate: string): T | null {\n\ttry {\n\t\tconst parsed = JSON.parse(candidate);\n\t\tif (parsed && typeof parsed === \"object\" && !Array.isArray(parsed)) {\n\t\t\treturn parsed as T;\n\t\t}\n\t} catch {\n\t\tconst objectText = extractJsonObjects(candidate)[0];\n\t\tif (!objectText) return null;\n\t\ttry {\n\t\t\tconst parsed = JSON.parse(objectText);\n\t\t\tif (parsed && typeof parsed === \"object\" && !Array.isArray(parsed)) {\n\t\t\t\treturn parsed as T;\n\t\t\t}\n\t\t} catch {\n\t\t\treturn null;\n\t\t}\n\t}\n\treturn null;\n}",
+    "sourceUrl": "https://github.com/elizaOS/eliza/blob/8a2b993/packages/core/src/runtime/json-output.ts#L31-L50",
+    "sourceFileSha256": "acc0b17e2bb4d9bce623fd46ff024ed37e96a00493d3fe6f99868cd4a3d4c4e9"
+  },
+  {
+    "id": "json-object-entry",
+    "expected": "pass",
+    "reason": "JSON形式の探索失敗をnullで返し成功したオブジェクトを捏造しない",
+    "filePath": "packages/core/src/runtime/json-output.ts",
+    "source": "export function parseJsonObject<T extends object>(raw: string): T | null {\n\tconst trimmed = raw.trim();\n\tif (!trimmed) {\n\t\treturn null;\n\t}\n\n\tconst fenced = trimmed.match(/^```(?:json)?\\s*([\\s\\S]*?)\\s*```$/i);\n\tconst candidate = fenced?.[1] ?? trimmed;\n\n\tconst parsedCandidate =\n\t\tparseObjectCandidate<T>(candidate) ??\n\t\tparseObjectCandidate<T>(repairJsonStringEscapes(candidate));\n\tif (parsedCandidate) {\n\t\treturn parsedCandidate;\n\t}\n\n\tconst repairedCandidate = repairJsonStringEscapes(candidate);\n\tconst objectText =\n\t\textractJsonObjects(candidate)[0] ??\n\t\t(repairedCandidate === candidate\n\t\t\t? null\n\t\t\t: extractJsonObjects(repairedCandidate)[0]);\n\tif (!objectText) return null;\n\n\treturn (\n\t\tparseObjectCandidate<T>(objectText) ??\n\t\tparseObjectCandidate<T>(repairJsonStringEscapes(objectText))\n\t);\n}",
+    "sourceUrl": "https://github.com/elizaOS/eliza/blob/8a2b993/packages/core/src/runtime/json-output.ts#L1-L29",
+    "sourceFileSha256": "acc0b17e2bb4d9bce623fd46ff024ed37e96a00493d3fe6f99868cd4a3d4c4e9"
+  },
+  {
+    "id": "retry-config-default",
+    "expected": "pass",
+    "reason": "HTTP再試行のbackoff設定は制御パラメータの既定値",
+    "filePath": "src/lib/retries.ts",
+    "source": "export async function retry(\n  fetchFn: () => Promise<Response>,\n  options: {\n    config: RetryConfig;\n    statusCodes: string[];\n  },\n): Promise<Response> {\n  switch (options.config.strategy) {\n    case \"backoff\":\n      return retryBackoff(\n        wrapFetcher(fetchFn, {\n          statusCodes: options.statusCodes,\n          retryConnectionErrors: !!options.config.retryConnectionErrors,\n        }),\n        options.config.backoff ?? defaultBackoff,\n      );\n    default:\n      return await fetchFn();\n  }\n}",
+    "sourceUrl": "https://github.com/speakeasy-api/speakeasy-client-sdk-typescript/blob/main/src/lib/retries.ts#L72-L91",
+    "sourceFileSha256": "79296a51fdebb9cfe63296ace1d3ab915817d4833a5ec6e224afe6df9ebc1234"
+  },
+  {
+    "id": "retry-error-translation",
+    "expected": "pass",
+    "reason": "通信失敗をPermanentErrorとして保持する",
+    "filePath": "src/lib/retries.ts",
+    "source": "function wrapFetcher(\n  fn: () => Promise<Response>,\n  options: {\n    statusCodes: string[];\n    retryConnectionErrors: boolean;\n  },\n): () => Promise<Response> {\n  return async () => {\n    try {\n      const res = await fn();\n      if (isRetryableResponse(res, options.statusCodes)) {\n        throw new TemporaryError(\n          \"Response failed with retryable status code\",\n          res,\n        );\n      }\n\n      return res;\n    } catch (err: unknown) {\n      if (err instanceof TemporaryError) {\n        throw err;\n      }\n\n      if (\n        options.retryConnectionErrors &&\n        (isTimeoutError(err) || isConnectionError(err))\n      ) {\n        throw err;\n      }\n\n      throw new PermanentError(\"Permanent error\", { cause: err });\n    }\n  };\n}",
+    "sourceUrl": "https://github.com/speakeasy-api/speakeasy-client-sdk-typescript/blob/main/src/lib/retries.ts#L93-L126",
+    "sourceFileSha256": "79296a51fdebb9cfe63296ace1d3ab915817d4833a5ec6e224afe6df9ebc1234"
+  },
+  {
+    "id": "retry-exhausted-response",
+    "expected": "pass",
+    "reason": "再試行不能時に元の失敗HTTPレスポンスを返して状態を残す",
+    "filePath": "src/lib/retries.ts",
+    "source": "async function retryBackoff(\n  fn: () => Promise<Response>,\n  strategy: BackoffStrategy,\n): Promise<Response> {\n  const { maxElapsedTime, initialInterval, exponent, maxInterval } = strategy;\n\n  const start = Date.now();\n  let x = 0;\n\n  while (true) {\n    try {\n      const res = await fn();\n      return res;\n    } catch (err: unknown) {\n      if (err instanceof PermanentError) {\n        throw err.cause;\n      }\n      const elapsed = Date.now() - start;\n      if (elapsed > maxElapsedTime) {\n        if (err instanceof TemporaryError) {\n          return err.response;\n        }\n\n        throw err;\n      }\n\n      let retryInterval = 0;\n      if (err instanceof TemporaryError) {\n        retryInterval = retryIntervalFromResponse(err.response);\n      }\n\n      if (retryInterval <= 0) {\n        retryInterval =\n          initialInterval * Math.pow(x, exponent) + Math.random() * 1000;\n      }\n\n      const d = Math.min(retryInterval, maxInterval);\n\n      await delay(d);\n      x++;\n    }\n  }\n}",
+    "sourceUrl": "https://github.com/speakeasy-api/speakeasy-client-sdk-typescript/blob/main/src/lib/retries.ts#L152-L194",
+    "sourceFileSha256": "79296a51fdebb9cfe63296ace1d3ab915817d4833a5ec6e224afe6df9ebc1234"
+  },
+  {
+    "id": "retry-after-header",
+    "expected": "pass",
+    "reason": "retry-afterヘッダ不在の0は再試行間隔未指定の明示的表現",
+    "filePath": "src/lib/retries.ts",
+    "source": "function retryIntervalFromResponse(res: Response): number {\n  const retryVal = res.headers.get(\"retry-after\") || \"\";\n  if (!retryVal) {\n    return 0;\n  }\n\n  const parsedNumber = Number(retryVal);\n  if (Number.isInteger(parsedNumber)) {\n    return parsedNumber * 1000;\n  }\n\n  const parsedDate = Date.parse(retryVal);\n  if (Number.isInteger(parsedDate)) {\n    const deltaMS = parsedDate - Date.now();\n    return deltaMS > 0 ? Math.ceil(deltaMS) : 0;\n  }\n\n  return 0;\n}",
+    "sourceUrl": "https://github.com/speakeasy-api/speakeasy-client-sdk-typescript/blob/main/src/lib/retries.ts#L196-L214",
+    "sourceFileSha256": "79296a51fdebb9cfe63296ace1d3ab915817d4833a5ec6e224afe6df9ebc1234"
+  },
+  {
+    "id": "immer-latest-copy",
+    "expected": "pass",
+    "reason": "コピーが存在しなければ元の状態を返す同等表現",
+    "filePath": "src/utils/common.ts",
+    "source": "export let latest = (state: ImmerState): any => state.copy_ || state.base_",
+    "sourceUrl": "https://github.com/immerjs/immer/blob/main/src/utils/common.ts#L198-L198",
+    "sourceFileSha256": "866d918f39f40b3566d1e6ca3316a2495cd036354a9419fab0c103dc0db332b5"
+  },
+  {
+    "id": "immer-get-value",
+    "expected": "pass",
+    "reason": "変更のないdraftは元の状態を使い意味を保持する",
+    "filePath": "src/utils/common.ts",
+    "source": "export let getValue = <T extends object>(value: T): T => {\n\tconst proxyDraft = getProxyDraft(value)\n\t// Use the copy only if the draft was actually modified. An unmodified\n\t// draft can still have a copy_ (e.g. the get trap caches child drafts\n\t// there), and using it would both break structural sharing and leak\n\t// soon-to-be-revoked child drafts into the result.\n\treturn proxyDraft ? getFinalValue(proxyDraft) : value\n}",
+    "sourceUrl": "https://github.com/immerjs/immer/blob/main/src/utils/common.ts#L200-L207",
+    "sourceFileSha256": "866d918f39f40b3566d1e6ca3316a2495cd036354a9419fab0c103dc0db332b5"
+  }
+]

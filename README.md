@@ -120,7 +120,7 @@ Jev向けに `jev-no-implicit-fallback`、`jev-strict-function-boundary`、`jev-
 bun run dev rule run jev-no-implicit-fallback samples/jev/fallback.ts --config .codepolicy.jev.yml
 ```
 
-出力は指摘された観点と値のみ。説明文の生成・コード引用は行いません。全観点は `--verbose` のデバッグ出力で確認できます。設定書式は既存と同じで、Jev専用optionsはありません。使い方・制約・50ケースの比較測定は [Jev PoCの測定方法](docs/benchmark/README.md) を参照してください。
+出力は指摘された観点と値のみ。説明文の生成・コード引用は行いません。全観点は `--verbose` のデバッグ出力で確認できます。設定書式は既存と同じで、Jev専用optionsはありません。使い方・制約・52ケースの比較測定は [Jev PoCの測定方法](docs/benchmark/README.md) を参照してください。
 
 ### Text-generation providers
 

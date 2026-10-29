@@ -9,8 +9,8 @@ import { CacheStoreToken } from '../../infrastructure/cache/cache-store';
 import { createFileCacheStore } from '../../infrastructure/cache/file-cache-store';
 import { GitDiffService } from '../../infrastructure/git/git-diff.service';
 import { CreateDecisionClient } from '../../infrastructure/llm/typesafe-client';
-import { validateNoulResponse } from '../../infrastructure/llm/typesafe-provider';
-import type { NoulRequest } from '../../shared/decision-types';
+import { validateDecisionResponse } from '../../infrastructure/llm/typesafe-provider';
+import type { DecisionRequest } from '../../shared/decision-types';
 import { CreateLogger } from '../../shared/logger';
 import type { CodepolicyConfig } from '../../shared/types';
 import { createTestContainer } from '../../test-support/test-container';
@@ -31,18 +31,35 @@ afterEach(async () => {
 });
 
 function setup(config: CodepolicyConfig, probability = 0.91) {
-  const systemOne = vi.fn(async (request: NoulRequest) => {
+  const systemOne = vi.fn(async (request: DecisionRequest) => {
+    const selectedChoice = (id: string, choices: Readonly<Record<string, string>>): string => {
+      if (id === 'ambiguous_input_handling') return 'preserved_or_absent';
+      if (id === 'failure_handling') return 'meaning_lost';
+      return Object.keys(choices)[0] ?? '';
+    };
     const response = {
       model: 'jev-1.0.0',
       answers: Object.fromEntries(
-        Object.keys(request.questions).map((id) => [id, { type: 'noul', noul: probability }]),
+        Object.entries(request.questions).map(([id, question]) => [
+          id,
+          question.type === 'choice'
+            ? {
+                type: 'choice',
+                choice: selectedChoice(id, question.criteria),
+                confidence: probability,
+                probabilities: Object.fromEntries(
+                  Object.keys(question.criteria).map((choice) => [
+                    choice,
+                    choice === selectedChoice(id, question.criteria) ? probability : 0,
+                  ]),
+                ),
+              }
+            : { type: 'noul', noul: probability },
+        ]),
       ),
       usage: { input_tokens: 10, output_tokens: 5 },
     };
-    expectDecisionContract(
-      request,
-      validateNoulResponse(response, Object.keys(request.questions))._unsafeUnwrap(),
-    );
+    expectDecisionContract(request, validateDecisionResponse(response, request)._unsafeUnwrap());
     return response;
   });
   const debug = vi.fn();
@@ -63,6 +80,7 @@ function setup(config: CodepolicyConfig, probability = 0.91) {
           filePath: 'src/example.ts',
           scopeType: 'function',
           name: 'example',
+          qualifiedSymbol: 'ExampleService#example',
           code: 'function example() { return 1; }',
           signature: 'function example(): number',
           startLine: 1,

@@ -116,7 +116,7 @@ async function runMeasurement(
 const command = defineCommand({
   meta: {
     name: 'benchmark-jev',
-    description: 'Compare five fixed rule pairs; 300 evaluations, sequential and uncached',
+    description: 'Compare five fixed rule pairs; three repetitions, sequential and uncached',
   },
   args: {
     check: {
@@ -147,7 +147,7 @@ const command = defineCommand({
         JSON.stringify({
           rules: pocSuites.length,
           cases: pocSuites.flatMap((s) => s.cases).length,
-          evaluations: 300,
+          evaluations: pocSuites.flatMap((s) => s.cases).length * 2 * 3,
           models: [args['text-model'], args['jev-model']],
         }),
       );

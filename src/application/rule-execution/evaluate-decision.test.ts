@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { DecisionRuleDefinition } from '../../rules/decision-rule-types';
 import type { ScopeContext } from '../../rules/rule-types';
-import { DEFAULT_DECISION_THRESHOLDS } from '../../shared/decision-types';
+import { DEFAULT_DECISION_THRESHOLDS, type DecisionResponse } from '../../shared/decision-types';
 
 import { evaluateDecision } from './evaluate-decision';
 
@@ -30,7 +30,12 @@ const usage = {
 
 describe('evaluateDecision', () => {
   it('performs one request and retains both model IDs, raw observations and usage', async () => {
-    const ask = vi.fn(() => okAsync({ model: 'jev-1.13.0', probabilities: { a: 0.91 }, usage }));
+    const response: DecisionResponse = {
+      model: 'jev-1.13.0',
+      answers: { a: { type: 'noul', probability: 0.91 } },
+      usage,
+    };
+    const ask = vi.fn(() => okAsync(response));
     const result = await evaluateDecision(
       context,
       definition,

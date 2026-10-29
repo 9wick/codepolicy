@@ -25,6 +25,7 @@ export type CacheKeyInput = {
   scopeSignature: string | undefined;
   scopeType: string;
   scopeName: string;
+  scopeQualifiedSymbol?: string;
   filePath: string;
   fileTreeHash: string;
   mode?: 'file';
@@ -42,6 +43,7 @@ function buildKeyMaterial(input: CacheKeyInput): string {
     `re:${input.reasoningEffort ?? ''}`,
     `st:${input.scopeType}`,
     `sn:${input.scopeName}`,
+    ...(input.scopeQualifiedSymbol ? [`sqs:${input.scopeQualifiedSymbol}`] : []),
     `fp:${input.filePath}`,
     `fth:${input.fileTreeHash}`,
     `sg:${input.scopeSignature ?? ''}`,

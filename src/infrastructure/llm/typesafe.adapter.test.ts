@@ -1,13 +1,13 @@
 import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { NoulRequest } from '../../shared/decision-types';
+import type { DecisionRequest } from '../../shared/decision-types';
 import { expectDecisionContract } from '../../test-support/provider-contract';
 
-import { createDecisionProvider, validateNoulResponse } from './typesafe-provider';
+import { createDecisionProvider, validateDecisionResponse } from './typesafe-provider';
 import { createTypeSafeClient } from './typesafe-client';
 
-const request: NoulRequest = {
+const request: DecisionRequest = {
   model: 'jev-1.13.0',
   state: { source: 'function f() {}' },
   questions: { violation: { type: 'noul', instructions: '違反している。' } },
@@ -29,7 +29,7 @@ describe('TypeSafe HTTP contract', () => {
     expect(result).toEqual(
       ok({
         model: 'jev-1.13.0',
-        probabilities: { violation: 0.91 },
+        answers: { violation: { type: 'noul', probability: 0.91 } },
         usage: {
           inputTokens: 100,
           outputTokens: 20,
@@ -45,6 +45,73 @@ describe('TypeSafe HTTP contract', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify(request),
+      }),
+    );
+  });
+
+  it('normalizes the configured Choice option probability without sending policy metadata', async () => {
+    const choiceRequest: DecisionRequest = {
+      model: 'jev-1.13.0',
+      state: { source: 'function f() {}' },
+      questions: {
+        outcome: {
+          type: 'choice',
+          instructions: 'Which outcome applies?',
+          criteria: { violation: 'Policy violation.', allowed: 'Allowed behavior.' },
+        },
+      },
+    };
+    const choiceResponse = {
+      model: 'jev-1.13.0',
+      answers: {
+        outcome: {
+          type: 'choice',
+          choice: 'violation',
+          confidence: 0.8,
+          probabilities: { violation: 0.82, allowed: 0.18 },
+        },
+      },
+      usage: { input_tokens: 80, output_tokens: 15 },
+    };
+    const fetch = vi.fn(async () => new Response(JSON.stringify(choiceResponse), { status: 200 }));
+    const provider = createDecisionProvider(() =>
+      createTypeSafeClient({ apiKey: 'test-key', fetch }),
+    );
+
+    expect(await provider.ask(choiceRequest)).toEqual(
+      ok({
+        model: 'jev-1.13.0',
+        answers: {
+          outcome: {
+            type: 'choice',
+            choice: 'violation',
+            confidence: 0.8,
+            probabilities: { violation: 0.82, allowed: 0.18 },
+          },
+        },
+        usage: {
+          inputTokens: 80,
+          outputTokens: 15,
+          reasoningTokens: 0,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
+        },
+      }),
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.typesafe.ai/v1/systemone',
+      expect.objectContaining({
+        body: JSON.stringify({
+          model: choiceRequest.model,
+          state: choiceRequest.state,
+          questions: {
+            outcome: {
+              type: 'choice',
+              instructions: 'Which outcome applies?',
+              criteria: { violation: 'Policy violation.', allowed: 'Allowed behavior.' },
+            },
+          },
+        }),
       }),
     );
   });
@@ -78,7 +145,7 @@ describe('TypeSafe HTTP contract', () => {
     { ...response, model: '' },
     null,
   ])('rejects malformed or incomplete responses', (raw) => {
-    expect(validateNoulResponse(raw, ['violation']).isErr()).toBe(true);
+    expect(validateDecisionResponse(raw, request).isErr()).toBe(true);
   });
 
   it('rejects non-JSON responses without converting to pass', async () => {
