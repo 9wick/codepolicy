@@ -83,11 +83,12 @@ describe('Jev built-in rule contracts', () => {
     ]);
   });
 
-  it('declares two independent meaning observations without a layer classifier', () => {
+  it('declares independent meaning observations and a policy role without a layer classifier', () => {
     const noFallback = builtinDecisionRules.find((r) => r.id === 'jev-no-implicit-fallback');
     expect(noFallback?.definition.criteria.map((criterion) => criterion.id)).toEqual([
       'ambiguous_input_handling',
       'failure_handling',
+      'input_policy_role',
     ]);
     expect(noFallback?.definition.include).not.toContain('qualifiedSymbol');
     expect(

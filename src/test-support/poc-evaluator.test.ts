@@ -81,6 +81,7 @@ describe('PoC measurement contracts', () => {
       const selected: Readonly<Record<string, string>> = {
         ambiguous_input_handling: 'preserved_or_absent',
         failure_handling: 'meaning_lost',
+        input_policy_role: 'unclear',
       };
       return {
         model: 'jev-1.13.0',

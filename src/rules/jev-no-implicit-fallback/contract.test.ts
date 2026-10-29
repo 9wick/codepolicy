@@ -12,18 +12,23 @@ import { DEFAULT_DECISION_THRESHOLDS } from '../../shared/decision-types';
 import definition from './rule';
 
 const choices = ['meaning_lost', 'preserved_or_absent', 'unclear'];
-function answer(choice: string): ChoiceDecisionAnswer {
+const policyChoices = ['boundary_default', 'invented_value', 'unclear'];
+function answer(choice: string, available = choices): ChoiceDecisionAnswer {
   return {
     type: 'choice',
     choice,
     confidence: 0.8,
-    probabilities: Object.fromEntries(choices.map((id) => [id, id === choice ? 0.94 : 0.03])),
+    probabilities: Object.fromEntries(available.map((id) => [id, id === choice ? 0.94 : 0.03])),
   };
 }
-function compose(input: string, failure: string) {
+function compose(input: string, failure: string, policy = 'unclear') {
   return composeDecisionVerdict(
     definition,
-    { ambiguous_input_handling: answer(input), failure_handling: answer(failure) },
+    {
+      ambiguous_input_handling: answer(input),
+      failure_handling: answer(failure),
+      input_policy_role: answer(policy, policyChoices),
+    },
     DEFAULT_DECISION_THRESHOLDS,
   )._unsafeUnwrap();
 }
@@ -47,6 +52,11 @@ describe('independent no-fallback meaning contracts', () => {
       expect(result.observations.map((item) => item.choice)).toEqual([
         { choice: input, confidence: 0.8, probabilities: answer(input).probabilities },
         { choice: failure, confidence: 0.8, probabilities: answer(failure).probabilities },
+        {
+          choice: 'unclear',
+          confidence: 0.8,
+          probabilities: answer('unclear', policyChoices).probabilities,
+        },
       ]);
     },
   );
@@ -72,6 +82,29 @@ describe('independent no-fallback meaning contracts', () => {
     ).not.toContain('解釈権限');
   });
 
+  it.each([
+    ['invented_value', 'violation'],
+    ['boundary_default', 'pass'],
+    ['unclear', 'borderline'],
+  ])('classifies a known input loss with policy role %s as %s', (policy, verdict) => {
+    expect(compose('meaning_lost', 'preserved_or_absent', policy).verdict).toBe(verdict);
+  });
+
+  it('accepts an established interface default even when its semantic difference is unclear', () => {
+    expect(compose('unclear', 'preserved_or_absent', 'boundary_default').verdict).toBe('pass');
+  });
+
+  it('rejects an invented business value even when the separate meaning observation is unclear', () => {
+    expect(compose('unclear', 'preserved_or_absent', 'invented_value').verdict).toBe('violation');
+    expect(compose('preserved_or_absent', 'preserved_or_absent', 'invented_value').verdict).toBe(
+      'pass',
+    );
+  });
+
+  it('never excuses a swallowed failure with an allowed input default', () => {
+    expect(compose('meaning_lost', 'meaning_lost', 'boundary_default').verdict).toBe('violation');
+  });
+
   it.each(['src/domain/counter.ts', 'src/adapters/http/counter.ts'])(
     '%s needs no authority for preserved meaning',
     async (filePath) => {
@@ -81,6 +114,7 @@ describe('independent no-fallback meaning contracts', () => {
           answers: {
             ambiguous_input_handling: answer('preserved_or_absent'),
             failure_handling: answer('preserved_or_absent'),
+            input_policy_role: answer('unclear', policyChoices),
           },
           usage: {
             inputTokens: 1,
@@ -111,6 +145,7 @@ describe('independent no-fallback meaning contracts', () => {
       expect(definition.criteria.map((criterion) => criterion.id)).toEqual([
         'ambiguous_input_handling',
         'failure_handling',
+        'input_policy_role',
       ]);
       expect(definition.include).not.toContain('qualifiedSymbol');
     },

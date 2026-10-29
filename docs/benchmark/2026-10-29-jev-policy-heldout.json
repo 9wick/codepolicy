@@ -1,0 +1,128 @@
+[
+  {
+    "id": "missing-permission",
+    "expected": "violation",
+    "reason": "権限不明を管理者権限に確定してはいけない",
+    "filePath": "src/adapters/http/session.ts",
+    "source": "function currentRole(user: { role?: 'reader' | 'admin' }): 'reader' | 'admin' { return user.role ?? 'admin'; }"
+  },
+  {
+    "id": "missing-tenant",
+    "expected": "violation",
+    "reason": "所属テナント不明を既定のテナントに確定してはいけない",
+    "filePath": "src/infrastructure/auth/tenant.ts",
+    "source": "function tenantFor(session: { tenantId?: string }): string { return session.tenantId ?? 'public'; }"
+  },
+  {
+    "id": "missing-tax-jurisdiction",
+    "expected": "violation",
+    "reason": "税務上の地域が不明なのに特定地域として課税額を算出している",
+    "filePath": "src/application/tax/calculate.ts",
+    "source": "function tax(region: 'north' | 'south' | undefined, amount: number): number { return (region ?? 'north') === 'north' ? amount * 0.2 : amount * 0.1; }"
+  },
+  {
+    "id": "missing-inventory-observation",
+    "expected": "violation",
+    "reason": "未確認の在庫を在庫なしと同一視している",
+    "filePath": "src/domain/inventory.ts",
+    "source": "function available(stock: { kind: 'known'; units: number } | { kind: 'not_checked' }): boolean { const units = stock.kind === 'known' ? stock.units : 0; return units > 0; }"
+  },
+  {
+    "id": "partial-update-flag",
+    "expected": "violation",
+    "reason": "更新指示の省略をfalseへの変更にすり替えている",
+    "filePath": "src/application/account.ts",
+    "source": "function changeAccount(current: { notificationsEnabled: boolean }, patch: { notificationsEnabled?: boolean }): { notificationsEnabled: boolean } { return { notificationsEnabled: patch.notificationsEnabled ?? false }; }"
+  },
+  {
+    "id": "failure-as-empty-success",
+    "expected": "violation",
+    "reason": "検索処理の例外を成功した空検索に変えている",
+    "filePath": "src/adapters/http/search.ts",
+    "source": "async function search(term: string): Promise<{ ok: true; results: Item[] }> { try { return { ok: true, results: await index.search(term) }; } catch { return { ok: true, results: [] }; } }"
+  },
+  {
+    "id": "error-result-as-zero",
+    "expected": "violation",
+    "reason": "失敗Resultを通常の成功数値へ変えている",
+    "filePath": "src/application/balance.ts",
+    "source": "function balance(result: { ok: true; value: number } | { ok: false; error: Error }): number { return result.ok ? result.value : 0; }"
+  },
+  {
+    "id": "boundary-with-domain-value",
+    "expected": "violation",
+    "reason": "画面表示件数の既定値はよいが、所有者不明を特定の所有者にしている",
+    "filePath": "src/adapters/http/files.ts",
+    "source": "function listRequest(rawLimit: string | undefined, filter: { owner?: string }): { limit: number; owner: string } { return { limit: rawLimit === undefined ? 30 : Number(rawLimit), owner: filter.owner ?? 'system' }; }"
+  },
+  {
+    "id": "cli-output-format",
+    "expected": "pass",
+    "reason": "CLIの出力形式は外部インターフェースの制御パラメータであり通常の既定値を持てる",
+    "filePath": "src/adapters/cli/options.ts",
+    "source": "function outputFormat(flag: 'json' | 'text' | undefined): 'json' | 'text' { return flag ?? 'text'; }"
+  },
+  {
+    "id": "http-sort-order",
+    "expected": "pass",
+    "reason": "HTTP一覧の並び順は外部インターフェースの制御パラメータ",
+    "filePath": "src/adapters/http/query.ts",
+    "source": "function parseSort(raw: 'newest' | 'oldest' | undefined): 'newest' | 'oldest' { return raw ?? 'newest'; }"
+  },
+  {
+    "id": "missing-as-label",
+    "expected": "pass",
+    "reason": "表示上で不明と明示しており、測定済みの値を捏造しない",
+    "filePath": "src/presentation/temperature.ts",
+    "source": "function showTemperature(value: number | undefined): string { return value === undefined ? 'unknown' : `${value} °C`; }"
+  },
+  {
+    "id": "patch-keeps-original",
+    "expected": "pass",
+    "reason": "更新指示の省略は値を維持するので意味を保つ",
+    "filePath": "src/domain/settings.ts",
+    "source": "function edit(current: { locale: string }, patch: { locale?: string }): { locale: string } { return { locale: patch.locale ?? current.locale }; }"
+  },
+  {
+    "id": "empty-map-frequency",
+    "expected": "pass",
+    "reason": "空から集計した出現回数では未登録と回数0が同義",
+    "filePath": "src/domain/histogram.ts",
+    "source": "function histogram(words: string[]): Map<string, number> { const result = new Map<string, number>(); for (const word of words) result.set(word, (result.get(word) ?? 0) + 1); return result; }"
+  },
+  {
+    "id": "missing-lookup-result",
+    "expected": "pass",
+    "reason": "検索対象が存在しないことをnullで表すのは成功値への失敗隠蔽ではない",
+    "filePath": "src/infrastructure/database/users.ts",
+    "source": "async function findUser(id: string): Promise<User | null> { const rows = await db.findUsers(id); return rows[0] ?? null; }"
+  },
+  {
+    "id": "failure-kept-in-result",
+    "expected": "pass",
+    "reason": "データ取得の失敗を失敗Resultとして維持している",
+    "filePath": "src/application/snapshot.ts",
+    "source": "async function snapshot(): Promise<Result<Snapshot, Error>> { const result = await store.read(); if (result.isErr()) return err(result.error); return ok(result.value); }"
+  },
+  {
+    "id": "unspecified-quota",
+    "expected": "borderline",
+    "reason": "未指定のquotaが0と同義なのか、不明なのか判断材料がない",
+    "filePath": "src/utils/quota.ts",
+    "source": "function normalizeQuota(quota: number | undefined): number { return quota ?? 0; }"
+  },
+  {
+    "id": "unspecified-label",
+    "expected": "borderline",
+    "reason": "空文字が未指定ラベルの正規表現なのか、ラベルを消す変更なのか不明",
+    "filePath": "src/utils/label.ts",
+    "source": "function normalizeLabel(input: string | undefined): string { return input ?? ''; }"
+  },
+  {
+    "id": "unspecified-epoch",
+    "expected": "borderline",
+    "reason": "未指定の時刻を基準時刻0と同一視できる契約が見えない",
+    "filePath": "src/utils/epoch.ts",
+    "source": "function resolveEpoch(value: number | undefined): number { return value ?? 0; }"
+  }
+]

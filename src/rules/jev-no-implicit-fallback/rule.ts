@@ -34,6 +34,21 @@ const definition: DecisionRuleDefinition = {
           'A failure is handled, but the available code does not establish whether its outward result still communicates failure. Do not infer success merely from a return statement.',
       },
     },
+    {
+      id: 'input_policy_role',
+      label: '補完の役割',
+      type: 'choice',
+      statement:
+        'Classify the policy role ONLY for NON-FAILURE missing-value replacements that actually LOSE input/data meaning. If no such loss is established, choose unclear: a caught exception replaced with zero is an operation failure, NOT an invented_value for this question; an explicit missing-value label is NOT an invented_value either. For relevant meaning loss, distinguish an ordinary external interface CONTROL PARAMETER (pagination size, limit, offset, batch size) from a business fact or observed value (customer attributes, prices, discounts, shipping location, measurements) and from an update instruction. A function receiving a parameter does not make that parameter an interface control: a Partial domain object is still business data even if the function merely returns a value. Choose invented_value if ANY unknown business fact, observed value or no-change update instruction becomes a determined value or different instruction, including when another path uses a conventional boundary default. Choose boundary_default ONLY if every relevant replacement normalizes a conventional control parameter at the external input boundary, without fabricating domain data. Choose unclear if context is insufficient to establish the role. A file path alone cannot prove an allowed default.',
+      choices: {
+        invented_value:
+          'At least one replacement invents an unknown business fact, a measurement, or an update instruction as a determined value. This takes precedence over allowed defaults elsewhere in the same function.',
+        boundary_default:
+          'Every relevant replacement normalizes an external interface control parameter with a conventional default. An optional property of a domain object is NOT an interface control parameter.',
+        unclear:
+          'There is no relevant non-failure replacement, or the provided context does not establish which of these policy roles a replacement has. Do not infer permission from a directory name alone.',
+      },
+    },
   ],
   policy: {
     type: 'concerns',
@@ -43,14 +58,58 @@ const definition: DecisionRuleDefinition = {
         label: '入力・設定の意味の喪失',
         outcomes: [
           {
+            id: 'invented_input_value',
+            verdict: 'violation',
+            reason: '未確定の業務値・測定値・変更指示を確定値へ置換している',
+            reasonKind: 'policy_result',
+            when: {
+              type: 'all',
+              expressions: [
+                {
+                  type: 'any',
+                  expressions: [
+                    {
+                      type: 'choice',
+                      criterionId: 'ambiguous_input_handling',
+                      choiceId: 'meaning_lost',
+                    },
+                    {
+                      type: 'choice',
+                      criterionId: 'ambiguous_input_handling',
+                      choiceId: 'unclear',
+                    },
+                  ],
+                },
+                { type: 'choice', criterionId: 'input_policy_role', choiceId: 'invented_value' },
+              ],
+            },
+          },
+          {
+            id: 'allowed_boundary_default',
+            verdict: 'pass',
+            reason: '外部入力境界での通常の既定値設定',
+            reasonKind: 'policy_result',
+            when: {
+              type: 'choice',
+              criterionId: 'input_policy_role',
+              choiceId: 'boundary_default',
+            },
+          },
+          {
             id: 'input_loss_without_authority_context',
             verdict: 'borderline',
             reason: '入力・設定の意味の喪失を検出。解釈権限が未設定',
             reasonKind: 'insufficient_context',
             when: {
-              type: 'choice',
-              criterionId: 'ambiguous_input_handling',
-              choiceId: 'meaning_lost',
+              type: 'all',
+              expressions: [
+                {
+                  type: 'choice',
+                  criterionId: 'ambiguous_input_handling',
+                  choiceId: 'meaning_lost',
+                },
+                { type: 'choice', criterionId: 'input_policy_role', choiceId: 'unclear' },
+              ],
             },
           },
           {
@@ -69,7 +128,13 @@ const definition: DecisionRuleDefinition = {
             verdict: 'borderline',
             reason: '入力・設定の意味が保存されているか判断する材料が不足',
             reasonKind: 'insufficient_context',
-            when: { type: 'choice', criterionId: 'ambiguous_input_handling', choiceId: 'unclear' },
+            when: {
+              type: 'all',
+              expressions: [
+                { type: 'choice', criterionId: 'ambiguous_input_handling', choiceId: 'unclear' },
+                { type: 'choice', criterionId: 'input_policy_role', choiceId: 'unclear' },
+              ],
+            },
           },
         ],
       },
