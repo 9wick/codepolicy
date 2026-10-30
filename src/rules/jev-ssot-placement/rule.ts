@@ -11,13 +11,13 @@ const definition: DecisionRuleDefinition = {
       id: 'misplaced_responsibility',
       label: 'パスと責務の不一致',
       statement:
-        '対象関数の責務が、filePathとfileTreeから読み取れる現在のファイル・ディレクトリの責務と明らかに食い違っている。単なる名称の不一致や、他によりよい配置が考えられる程度の改善余地は含めない。',
+        'Does the exported function perform a responsibility clearly unrelated to the responsibility established by its actual file and neighboring files? Base the answer on behavior, path and fileTree together, not a function name alone. A utility that performs domain orchestration, or a domain model that directly performs external I/O when the tree has adapters/infrastructure, is a concrete mismatch. Answer no for a mere alternative placement or an ordinary adapter calling application logic.',
     },
     {
       id: 'wrong_layer',
       label: 'layerと責務の不一致',
       statement:
-        '対象関数の処理は、filePathとfileTreeが示す現在のアーキテクチャlayerの役割を明らかに越えている。ディレクトリ名だけで役割を確定できない場合や、軽微な配置改善の余地は含めない。',
+        'Does the function itself clearly cross the responsibility of its architectural layer, as established by both source and fileTree? A domain model executing external HTTP/database operations or a generic utility orchestrating business transactions crosses layers when the project visibly has boundary/application/infrastructure locations. An adapter translating input and calling an application operation is not a layer violation. If the tree cannot establish a layer contract, do not conclude one from a directory name alone.',
     },
   ],
 };
