@@ -10,25 +10,25 @@ const definition: DecisionRuleDefinition = {
       id: 'missing_required',
       label: '完成状態の必須値欠損',
       statement:
-        '対象の型は完成済み・検証済みの業務データを表すのに、その状態で必須の値の欠損をoptionalやnullで許している。入力途中や検証前を明示する型、欠損自体が正当な状態である項目は含めない。',
+        'Does this type permit a completed or verified state to omit a field that this same state necessarily requires (optional, undefined or null)? A status and an independently optional completion field can allow the completed status without its evidence. Answer no for an explicitly unfinished Draft or input type, a genuinely optional attribute, or a discriminated union requiring the field in its completed branch. Optional syntax alone is not evidence.',
     },
     {
       id: 'contradictory_fields',
       label: '項目間の状態矛盾',
       statement:
-        '対象の型は業務上連動する項目を独立に指定でき、状態と日時等の矛盾した組み合わせを完成済みデータとして表現できる。独立してよい項目や入力途中専用の型は含めない。',
+        'Can this domain type express a concrete contradictory combination of its own fields, such as a status union independent of optional completion evidence (completed without evidence or pending with evidence), or mutually exclusive flags both true? Answer no when a discriminated union ties each field to its proper state, the fields are independent, or this is explicitly a Draft. Require an actual contradictory combination, not merely an optional field.',
     },
     {
       id: 'interchangeable_values',
       label: '異なる意味の値の混同',
       statement:
-        '対象の型は異なる識別子・単位・意味を持つ値を同じprimitiveとして交換可能にし、取り違えが現実的に起こりうる。primitiveを使うこと自体や、意味の取り違えがない単純な別名は含めない。',
+        'Does the type expose two or more plausibly confusable fields with distinct roles, identities or physical units using the same unbranded primitive, permitting an accidental swap? Answer no for branded or structurally distinct types, or a lone primitive field with no meaningful counterpart. Do not flag every use of string or number.',
     },
     {
       id: 'mixed_validation_state',
       label: '検証前後の状態混在',
       statement:
-        '対象の型は検証前・入力途中の状態と完成済みの状態を区別せず、未確定の値を完成済みとして扱える。Draft等として未確定状態を明示し閉じ込めている型は含めない。',
+        'Does this type actually mix raw/unvalidated fields or incomplete input with a completed or verified stage without distinguishing them? Answer no if there is no raw, incomplete or unvalidated state in the type, even if fields use ordinary primitives. Answer no for explicitly named Draft/input types and discriminated stage unions with required completed fields. Do not infer a hidden validation stage from the file path or optional syntax alone.',
     },
   ],
 };

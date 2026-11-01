@@ -1,0 +1,254 @@
+[
+  {
+    "id": "sfb-01",
+    "rule": "strict-function-boundary",
+    "expected": "pass",
+    "reason": "確定した予約IDと金額を受け取り、承認と残高不足を明示的な結果で区別している。",
+    "filePath": "src/booking/confirmReservation.ts",
+    "source": "type Confirmation = { kind: 'confirmed'; receiptId: string } | { kind: 'insufficientFunds'; shortfallCents: number };\nfunction confirmReservation(reservationId: string, chargeCents: number, availableCents: number): Confirmation {\n  if (availableCents < chargeCents) return { kind: 'insufficientFunds', shortfallCents: chargeCents - availableCents };\n  return { kind: 'confirmed', receiptId: `receipt:${reservationId}` };\n}",
+    "scopeType": "function",
+    "name": "confirmReservation",
+    "signature": "function confirmReservation(reservationId: string, chargeCents: number, availableCents: number): Confirmation"
+  },
+  {
+    "id": "sfb-02",
+    "rule": "strict-function-boundary",
+    "expected": "violation",
+    "reason": "請求判断の中核が未確定の支払期限を受け取り、内部で期限を補完している。",
+    "filePath": "src/billing/issueInvoice.ts",
+    "source": "function issueInvoice(accountId: string, dueAt: Date | undefined, now: Date): { accountId: string; dueAt: Date } {\n  return { accountId, dueAt: dueAt ?? new Date(now.getTime() + 14 * 86_400_000) };\n}",
+    "scopeType": "function",
+    "name": "issueInvoice",
+    "signature": "function issueInvoice(accountId: string, dueAt: Date | undefined, now: Date): { accountId: string; dueAt: Date }"
+  },
+  {
+    "id": "sfb-03",
+    "rule": "strict-function-boundary",
+    "expected": "pass",
+    "reason": "入力文字列を解釈するパーサーなので未検証の入力を受け取ってよく、失敗も明示している。",
+    "filePath": "src/adapters/parsePort.ts",
+    "source": "function parsePort(raw: string): { kind: 'valid'; port: number } | { kind: 'invalid' } {\n  const port = Number(raw);\n  return Number.isInteger(port) && port >= 1 && port <= 65535 ? { kind: 'valid', port } : { kind: 'invalid' };\n}",
+    "scopeType": "function",
+    "name": "parsePort",
+    "signature": "function parsePort(raw: string): { kind: 'valid'; port: number } | { kind: 'invalid' }"
+  },
+  {
+    "id": "sfb-04",
+    "rule": "strict-function-boundary",
+    "expected": "violation",
+    "reason": "審査の中核が未確定の申請者IDを受け取り、欠けた場合に仮のIDを採用している。",
+    "filePath": "src/loans/approveApplication.ts",
+    "source": "function approveApplication(applicantId: string | undefined, score: number): { approvedFor: string } | { deniedFor: string } {\n  const id = applicantId ?? 'anonymous';\n  return score >= 700 ? { approvedFor: id } : { deniedFor: id };\n}",
+    "scopeType": "function",
+    "name": "approveApplication",
+    "signature": "function approveApplication(applicantId: string | undefined, score: number): { approvedFor: string } | { deniedFor: string }"
+  },
+  {
+    "id": "sfb-05",
+    "rule": "strict-function-boundary",
+    "expected": "pass",
+    "reason": "検索関数のnullは該当レコードなしを表し、業務判断の曖昧な成功値ではない。",
+    "filePath": "src/catalog/findSku.ts",
+    "source": "function findSku(skus: ReadonlyArray<{ code: string; priceCents: number }>, code: string): { code: string; priceCents: number } | null {\n  return skus.find(sku => sku.code === code) ?? null;\n}",
+    "scopeType": "function",
+    "name": "findSku",
+    "signature": "function findSku(skus: ReadonlyArray<{ code: string; priceCents: number }>, code: string): { code: string; priceCents: number } | null"
+  },
+  {
+    "id": "sfb-06",
+    "rule": "strict-function-boundary",
+    "expected": "violation",
+    "reason": "出荷可否の判断でundefinedが成功・在庫不足・対象外のどれを意味するか区別できない。",
+    "filePath": "src/fulfillment/allocateStock.ts",
+    "source": "function allocateStock(orderId: string, requested: number, available: number): { orderId: string; allocated: number } | undefined {\n  if (requested <= 0 || requested > available) return undefined;\n  return { orderId, allocated: requested };\n}",
+    "scopeType": "function",
+    "name": "allocateStock",
+    "signature": "function allocateStock(orderId: string, requested: number, available: number): { orderId: string; allocated: number } | undefined"
+  },
+  {
+    "id": "sfb-07",
+    "rule": "strict-function-boundary",
+    "expected": "pass",
+    "reason": "有効期限切れと償還済みは許容される業務上の分岐で、各結果を識別可能にしている。",
+    "filePath": "src/vouchers/redeemVoucher.ts",
+    "source": "type Redemption = { kind: 'redeemed'; creditCents: number } | { kind: 'expired' } | { kind: 'alreadyRedeemed' };\nfunction redeemVoucher(expiresAt: Date, redeemedAt: Date | null, valueCents: number, now: Date): Redemption {\n  if (redeemedAt !== null) return { kind: 'alreadyRedeemed' };\n  if (expiresAt.getTime() <= now.getTime()) return { kind: 'expired' };\n  return { kind: 'redeemed', creditCents: valueCents };\n}",
+    "scopeType": "function",
+    "name": "redeemVoucher",
+    "signature": "function redeemVoucher(expiresAt: Date, redeemedAt: Date | null, valueCents: number, now: Date): Redemption"
+  },
+  {
+    "id": "sfb-08",
+    "rule": "strict-function-boundary",
+    "expected": "violation",
+    "reason": "配送料の決定に未検証の文字列重量を渡し、中核の内部で数値へ変換している。",
+    "filePath": "src/shipping/quotePostage.ts",
+    "source": "function quotePostage(weightGrams: string, ratePerGramCents: number): { kind: 'quoted'; cents: number } | { kind: 'rejected' } {\n  const weight = Number(weightGrams);\n  if (!Number.isFinite(weight) || weight <= 0) return { kind: 'rejected' };\n  return { kind: 'quoted', cents: Math.ceil(weight * ratePerGramCents) };\n}",
+    "scopeType": "function",
+    "name": "quotePostage",
+    "signature": "function quotePostage(weightGrams: string, ratePerGramCents: number): { kind: 'quoted'; cents: number } | { kind: 'rejected' }"
+  },
+  {
+    "id": "sfb-09",
+    "rule": "strict-function-boundary",
+    "expected": "pass",
+    "reason": "HTTPアダプターでヘッダーの欠落を補う処理であり、業務判断の中核にデフォルト設定を持ち込んでいない。",
+    "filePath": "src/http/readPageSize.ts",
+    "source": "function readPageSize(header: string | undefined): number {\n  const parsed = Number(header ?? '20');\n  return Number.isInteger(parsed) && parsed > 0 ? parsed : 20;\n}",
+    "scopeType": "function",
+    "name": "readPageSize",
+    "signature": "function readPageSize(header: string | undefined): number"
+  },
+  {
+    "id": "sfb-10",
+    "rule": "strict-function-boundary",
+    "expected": "violation",
+    "reason": "権限付与の中核が省略可能な有効期限を受け取り、内部で恒久的な期限を決めている。",
+    "filePath": "src/access/grantAccess.ts",
+    "source": "function grantAccess(userId: string, resourceId: string, expiresAt?: Date): { userId: string; resourceId: string; expiresAt: Date } {\n  return { userId, resourceId, expiresAt: expiresAt ?? new Date('9999-12-31T00:00:00Z') };\n}",
+    "scopeType": "function",
+    "name": "grantAccess",
+    "signature": "function grantAccess(userId: string, resourceId: string, expiresAt?: Date): { userId: string; resourceId: string; expiresAt: Date }"
+  },
+  {
+    "id": "sfb-11",
+    "rule": "strict-function-boundary",
+    "expected": "pass",
+    "reason": "確定済みの請求額と入金額に基づき、完済と未払いを明示的な結果で返している。",
+    "filePath": "src/payments/settleBalance.ts",
+    "source": "function settleBalance(balanceCents: number, paidCents: number): { kind: 'settled' } | { kind: 'outstanding'; remainingCents: number } {\n  return paidCents >= balanceCents ? { kind: 'settled' } : { kind: 'outstanding', remainingCents: balanceCents - paidCents };\n}",
+    "scopeType": "function",
+    "name": "settleBalance",
+    "signature": "function settleBalance(balanceCents: number, paidCents: number): { kind: 'settled' } | { kind: 'outstanding'; remainingCents: number }"
+  },
+  {
+    "id": "sfb-12",
+    "rule": "strict-function-boundary",
+    "expected": "violation",
+    "reason": "支払い判定の中核が未確定の与信額を受け取り、欠落をゼロとして処理している。",
+    "filePath": "src/payments/authorizeCharge.ts",
+    "source": "function authorizeCharge(amountCents: number, creditCents: number | null): { kind: 'authorized' } | { kind: 'declined' } {\n  return amountCents <= (creditCents ?? 0) ? { kind: 'authorized' } : { kind: 'declined' };\n}",
+    "scopeType": "function",
+    "name": "authorizeCharge",
+    "signature": "function authorizeCharge(amountCents: number, creditCents: number | null): { kind: 'authorized' } | { kind: 'declined' }"
+  },
+  {
+    "id": "ist-01",
+    "rule": "no-invalid-state-type",
+    "expected": "pass",
+    "reason": "発送前と発送済みを判別共用体で分け、追跡番号を発送済みに必須としている。",
+    "filePath": "src/orders/Shipment.ts",
+    "source": "type Shipment = { status: 'pending'; orderId: string } | { status: 'shipped'; orderId: string; trackingNumber: string };",
+    "scopeType": "type",
+    "name": "Shipment"
+  },
+  {
+    "id": "ist-02",
+    "rule": "no-invalid-state-type",
+    "expected": "violation",
+    "reason": "発送済みでも追跡番号を欠かせ、発送前でも追跡番号を持てる。",
+    "filePath": "src/orders/Shipment.ts",
+    "source": "interface Shipment { orderId: string; status: 'pending' | 'shipped'; trackingNumber?: string; }",
+    "scopeType": "interface",
+    "name": "Shipment"
+  },
+  {
+    "id": "ist-03",
+    "rule": "no-invalid-state-type",
+    "expected": "pass",
+    "reason": "入力途中の下書きと明記された型なので、宛先や本文の欠落が許される。",
+    "filePath": "src/messaging/MessageDraft.ts",
+    "source": "interface MessageDraft { recipientId?: string; subject?: string; body?: string; }",
+    "scopeType": "interface",
+    "name": "MessageDraft"
+  },
+  {
+    "id": "ist-04",
+    "rule": "no-invalid-state-type",
+    "expected": "violation",
+    "reason": "完了した送金を表す型なのに送金先と金額を省略できる。",
+    "filePath": "src/transfers/CompletedTransfer.ts",
+    "source": "type CompletedTransfer = { status: 'completed'; transferId: string; destinationAccountId?: string; amountCents?: number };",
+    "scopeType": "type",
+    "name": "CompletedTransfer"
+  },
+  {
+    "id": "ist-05",
+    "rule": "no-invalid-state-type",
+    "expected": "pass",
+    "reason": "患者IDと医師IDを異なるブランド型にし、文字列ID同士の取り違えを型で防いでいる。",
+    "filePath": "src/clinic/Appointment.ts",
+    "source": "type PatientId = string & { readonly __brand: 'PatientId' };\ntype ClinicianId = string & { readonly __brand: 'ClinicianId' };\ninterface Appointment { patientId: PatientId; clinicianId: ClinicianId; startsAt: Date; }",
+    "scopeType": "interface",
+    "name": "Appointment"
+  },
+  {
+    "id": "ist-06",
+    "rule": "no-invalid-state-type",
+    "expected": "violation",
+    "reason": "送り手と受け手という意味の異なるIDが同じstringで、代入時の取り違えを防げない。",
+    "filePath": "src/transfers/TransferInstruction.ts",
+    "source": "interface TransferInstruction { senderAccountId: string; recipientAccountId: string; amountCents: number; }",
+    "scopeType": "interface",
+    "name": "TransferInstruction"
+  },
+  {
+    "id": "ist-07",
+    "rule": "no-invalid-state-type",
+    "expected": "pass",
+    "reason": "配送指示に受取人と住所を必須とし、任意の配達メモだけを省略可能にしている。",
+    "filePath": "src/delivery/DeliveryOrder.ts",
+    "source": "interface DeliveryOrder { recipientId: string; streetAddress: string; postalCode: string; deliveryNote?: string; }",
+    "scopeType": "interface",
+    "name": "DeliveryOrder"
+  },
+  {
+    "id": "ist-08",
+    "rule": "no-invalid-state-type",
+    "expected": "violation",
+    "reason": "承認済みと却下済みの両フラグを同時にtrueにでき、承認者がいない承認済みも表せる。",
+    "filePath": "src/reviews/ReviewDecision.ts",
+    "source": "interface ReviewDecision { approved: boolean; rejected: boolean; approverId?: string; }",
+    "scopeType": "interface",
+    "name": "ReviewDecision"
+  },
+  {
+    "id": "ist-09",
+    "rule": "no-invalid-state-type",
+    "expected": "pass",
+    "reason": "摂氏と華氏を別のブランド型にし、温度の単位違いによる値の入れ替えを防いでいる。",
+    "filePath": "src/weather/TemperatureReading.ts",
+    "source": "type Celsius = number & { readonly __brand: 'Celsius' };\ntype Fahrenheit = number & { readonly __brand: 'Fahrenheit' };\ntype TemperatureReading = { measured: Celsius; alertThreshold: Fahrenheit };",
+    "scopeType": "type",
+    "name": "TemperatureReading"
+  },
+  {
+    "id": "ist-10",
+    "rule": "no-invalid-state-type",
+    "expected": "violation",
+    "reason": "キログラムとポンドという異なる単位の値がどちらもnumberで、入れ替えを型で検出できない。",
+    "filePath": "src/freight/WeightConversion.ts",
+    "source": "type WeightConversion = { sourceKilograms: number; convertedPounds: number };",
+    "scopeType": "type",
+    "name": "WeightConversion"
+  },
+  {
+    "id": "ist-11",
+    "rule": "no-invalid-state-type",
+    "expected": "pass",
+    "reason": "検証前と検証後を別の状態として表し、検証前に確定済みの顧客IDを要求しない。",
+    "filePath": "src/onboarding/Registration.ts",
+    "source": "type Registration = { stage: 'submitted'; rawEmail: string } | { stage: 'verified'; customerId: string; verifiedEmail: string };",
+    "scopeType": "type",
+    "name": "Registration"
+  },
+  {
+    "id": "ist-12",
+    "rule": "no-invalid-state-type",
+    "expected": "violation",
+    "reason": "未検証の入力と検証済みの値を同じ完成型に混在させ、検証済み状態でも検証済み値を欠かせる。",
+    "filePath": "src/onboarding/Registration.ts",
+    "source": "interface Registration { stage: 'submitted' | 'verified'; rawEmail: string; verifiedEmail?: string; customerId?: string; }",
+    "scopeType": "interface",
+    "name": "Registration"
+  }
+]

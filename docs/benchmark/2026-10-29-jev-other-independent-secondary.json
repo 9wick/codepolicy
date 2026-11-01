@@ -1,0 +1,178 @@
+[
+  {
+    "id": "ssot-01",
+    "rule": "ssot-placement",
+    "expected": "pass",
+    "reason": "合計額の計算は価格ドメインの責務に合う。",
+    "filePath": "src/domain/pricing/calculateTotal.ts",
+    "source": "export function calculateTotal(lines: readonly { price: number; quantity: number }[]): number {\n  return lines.reduce((sum, line) => sum + line.price * line.quantity, 0);\n}",
+    "scopeType": "exported-function",
+    "name": "calculateTotal",
+    "signature": "export function calculateTotal(lines: readonly { price: number; quantity: number }[]): number",
+    "fileTree": "src/\n  domain/pricing/calculateTotal.ts\n  application/orders/placeOrder.ts\n  infrastructure/db/orderRepository.ts"
+  },
+  {
+    "id": "ssot-02",
+    "rule": "ssot-placement",
+    "expected": "pass",
+    "reason": "名前は紛らわしいが、実際には表示用の伏せ字化だけを行う。",
+    "filePath": "src/presentation/formatters/hashPassword.ts",
+    "source": "export function hashPassword(password: string): string {\n  return '•'.repeat(password.length);\n}",
+    "scopeType": "exported-function",
+    "name": "hashPassword",
+    "signature": "export function hashPassword(password: string): string",
+    "fileTree": "src/\n  presentation/formatters/hashPassword.ts\n  domain/auth/hashPassword.ts\n  infrastructure/crypto/passwordHasher.ts"
+  },
+  {
+    "id": "ssot-03",
+    "rule": "ssot-placement",
+    "expected": "pass",
+    "reason": "永続化層での注文レコード取得に限定されている。",
+    "filePath": "src/infrastructure/db/listOrders.ts",
+    "source": "export async function listOrders(db: { query(sql: string): Promise<readonly { id: string }[]> }): Promise<readonly { id: string }[]> {\n  return db.query('SELECT id FROM orders');\n}",
+    "scopeType": "exported-function",
+    "name": "listOrders",
+    "signature": "export async function listOrders(db: { query(sql: string): Promise<readonly { id: string }[]> }): Promise<readonly { id: string }[]>",
+    "fileTree": "src/\n  infrastructure/db/listOrders.ts\n  application/orders/listOrders.ts\n  presentation/orders/orderView.ts"
+  },
+  {
+    "id": "ssot-04",
+    "rule": "ssot-placement",
+    "expected": "pass",
+    "reason": "注文作成の調整処理はアプリケーション層の役割。",
+    "filePath": "src/application/orders/placeOrder.ts",
+    "source": "export async function placeOrder(save: (items: readonly string[]) => Promise<string>, items: readonly string[]): Promise<string> {\n  return save(items);\n}",
+    "scopeType": "exported-function",
+    "name": "placeOrder",
+    "signature": "export async function placeOrder(save: (items: readonly string[]) => Promise<string>, items: readonly string[]): Promise<string>",
+    "fileTree": "src/\n  application/orders/placeOrder.ts\n  domain/orders/order.ts\n  infrastructure/db/orderStore.ts"
+  },
+  {
+    "id": "ssot-05",
+    "rule": "ssot-placement",
+    "expected": "violation",
+    "reason": "表示整形ファイルがデータベースへ直接問い合わせている。",
+    "filePath": "src/presentation/formatters/formatOrder.ts",
+    "source": "export async function formatOrder(db: { query(sql: string): Promise<readonly { id: string }[]> }): Promise<string> {\n  const rows = await db.query('SELECT id FROM orders');\n  return rows.map(row => row.id).join(', ');\n}",
+    "scopeType": "exported-function",
+    "name": "formatOrder",
+    "signature": "export async function formatOrder(db: { query(sql: string): Promise<readonly { id: string }[]> }): Promise<string>",
+    "fileTree": "src/\n  presentation/formatters/formatOrder.ts\n  application/orders/listOrders.ts\n  infrastructure/db/orderRepository.ts"
+  },
+  {
+    "id": "ssot-06",
+    "rule": "ssot-placement",
+    "expected": "violation",
+    "reason": "税率ドメインがブラウザーの保存領域から値を読む。",
+    "filePath": "src/domain/tax/taxRate.ts",
+    "source": "export function taxRate(): number {\n  return Number(window.localStorage.getItem('taxRate') ?? '0');\n}",
+    "scopeType": "exported-function",
+    "name": "taxRate",
+    "signature": "export function taxRate(): number",
+    "fileTree": "src/\n  domain/tax/taxRate.ts\n  infrastructure/browser/taxRateStorage.ts\n  application/checkout/calculateTax.ts"
+  },
+  {
+    "id": "ssot-07",
+    "rule": "ssot-placement",
+    "expected": "violation",
+    "reason": "HTTP応答の変換器が会員割引の業務判断を持っている。",
+    "filePath": "src/infrastructure/http/parseCartResponse.ts",
+    "source": "export function parseCartResponse(body: { total: number; member: boolean }): number {\n  return body.member ? body.total * 0.8 : body.total;\n}",
+    "scopeType": "exported-function",
+    "name": "parseCartResponse",
+    "signature": "export function parseCartResponse(body: { total: number; member: boolean }): number",
+    "fileTree": "src/\n  infrastructure/http/parseCartResponse.ts\n  domain/pricing/memberDiscount.ts\n  application/cart/loadCart.ts"
+  },
+  {
+    "id": "ssot-08",
+    "rule": "ssot-placement",
+    "expected": "violation",
+    "reason": "文字列ユーティリティから通知送信を実行している。",
+    "filePath": "src/shared/strings/toSlug.ts",
+    "source": "export async function toSlug(title: string, mailer: { send(text: string): Promise<void> }): Promise<string> {\n  const slug = title.trim().toLowerCase().replaceAll(' ', '-');\n  await mailer.send(slug);\n  return slug;\n}",
+    "scopeType": "exported-function",
+    "name": "toSlug",
+    "signature": "export async function toSlug(title: string, mailer: { send(text: string): Promise<void> }): Promise<string>",
+    "fileTree": "src/\n  shared/strings/toSlug.ts\n  application/notifications/sendNotice.ts\n  infrastructure/mail/mailer.ts"
+  },
+  {
+    "id": "nonstandard-01",
+    "rule": "no-nonstandard-code",
+    "expected": "pass",
+    "reason": "ビット演算は通常の権限マスク判定。",
+    "filePath": "src/permissions/hasPermission.ts",
+    "source": "function hasPermission(flags: number, required: number): boolean {\n  return (flags & required) === required;\n}",
+    "scopeType": "function",
+    "name": "hasPermission"
+  },
+  {
+    "id": "nonstandard-02",
+    "rule": "no-nonstandard-code",
+    "expected": "pass",
+    "reason": "Map.delete は通常のエントリー削除であり、オブジェクトのプロパティ削除ではない。",
+    "filePath": "src/cache/evictUser.ts",
+    "source": "function evictUser(cache: Map<string, string>, id: string): boolean {\n  return cache.delete(id);\n}",
+    "scopeType": "function",
+    "name": "evictUser"
+  },
+  {
+    "id": "nonstandard-03",
+    "rule": "no-nonstandard-code",
+    "expected": "pass",
+    "reason": "配列の通常の連結処理で、不可解な制御フローはない。",
+    "filePath": "src/text/joinNames.ts",
+    "source": "function joinNames(names: readonly string[]): string {\n  return names.map(name => name.trim()).filter(Boolean).join(', ');\n}",
+    "scopeType": "function",
+    "name": "joinNames"
+  },
+  {
+    "id": "nonstandard-04",
+    "rule": "no-nonstandard-code",
+    "expected": "pass",
+    "reason": "通常のループで最初の一致を探している。",
+    "filePath": "src/search/findUser.ts",
+    "source": "function findUser(users: readonly { id: string }[], id: string): { id: string } | undefined {\n  for (const user of users) {\n    if (user.id === id) return user;\n  }\n  return undefined;\n}",
+    "scopeType": "function",
+    "name": "findUser"
+  },
+  {
+    "id": "nonstandard-05",
+    "rule": "no-nonstandard-code",
+    "expected": "violation",
+    "reason": "eval によって文字列を動的にコードとして実行する。",
+    "filePath": "src/math/evaluateExpression.ts",
+    "source": "function evaluateExpression(expression: string): unknown {\n  return eval(expression);\n}",
+    "scopeType": "function",
+    "name": "evaluateExpression"
+  },
+  {
+    "id": "nonstandard-06",
+    "rule": "no-nonstandard-code",
+    "expected": "violation",
+    "reason": "二重ビット否定による数値化は意図が不明瞭な型変換。",
+    "filePath": "src/numbers/toInteger.ts",
+    "source": "function toInteger(value: string): number {\n  return ~~Number(value);\n}",
+    "scopeType": "function",
+    "name": "toInteger"
+  },
+  {
+    "id": "nonstandard-07",
+    "rule": "no-nonstandard-code",
+    "expected": "violation",
+    "reason": "delete で入力オブジェクトのプロパティを破壊的に消す。",
+    "filePath": "src/users/removeToken.ts",
+    "source": "function removeToken(user: { token?: string; id: string }): void {\n  delete user.token;\n}",
+    "scopeType": "function",
+    "name": "removeToken"
+  },
+  {
+    "id": "nonstandard-08",
+    "rule": "no-nonstandard-code",
+    "expected": "violation",
+    "reason": "単純な一致検索を無意味な多重ループと switch で複雑化している。",
+    "filePath": "src/search/findCode.ts",
+    "source": "function findCode(codes: readonly string[], target: string): string | undefined {\n  for (const code of codes) {\n    for (const candidate of [code]) {\n      switch (true) {\n        case candidate === target: return candidate;\n        default: break;\n      }\n    }\n  }\n  return undefined;\n}",
+    "scopeType": "function",
+    "name": "findCode"
+  }
+]

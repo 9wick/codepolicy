@@ -10,25 +10,25 @@ const definition: DecisionRuleDefinition = {
       id: 'ambiguous_input',
       label: '未確定な業務入力',
       statement:
-        '対象関数は業務判断を担い、optional・undefined・Partial・広いunionで表された未検証または未確定の入力を主要処理の契約として受け入れている。単なる変換、parser、探索、入力境界の検証処理は含めない。',
+        'Does this function make a business decision while its input contract accepts missing or unvalidated facts needed for that decision (optional, Partial, undefined, null or raw external data)? Answer no for an adapter, parser, validator, lookup, or for a genuinely optional business state that the function handles explicitly. A branch on an established business fact is not evidence of an unsettled input.',
     },
     {
       id: 'ambiguous_success',
       label: '曖昧な成功結果',
       statement:
-        '対象関数は業務判断を担うが、成功結果の欠損や未確定をnull・undefined等で返し、その意味の業務判断を呼び出し側へ押し戻している。検索や参照取得で見つからないことを返す場合、明示的な成功失敗の判別型は含めない。',
+        'Does a core business decision return null or undefined for a rejected or incomplete outcome without conveying which business outcome occurred? Answer no for search/lookup not-found results, parsing/validation failures at the boundary, or explicit discriminated success/failure results. Do not judge by nullable return type alone: identify what the function actually does.',
     },
     {
       id: 'repeated_preconditions',
       label: '広い契約による前提分岐',
       statement:
-        '対象関数は業務の主要処理を担い、入力契約が未確定状態を許すため、本来外側で確定すべき前提の確認や場合分けを内部で行っている。業務規則に必要な分岐、parser、探索、境界での検証自体は含めない。',
+        'Does a core business operation branch internally to repair or reject missing/unvalidated prerequisites that its unnecessarily broad input contract admits? Answer no when branches implement real business rules on established facts, or when the function itself is a parser, validator, search, or input-boundary adapter. An if statement alone is not evidence.',
     },
     {
       id: 'internal_normalization',
       label: '主要処理内の正規化',
       statement:
-        '対象関数はapplication/domainの主要処理を担い、外側入力やexecution optionの未指定値を内部で既定値に置き換えて意味を確定している。adapter等の入力境界での正規化、単なるデータ変換や探索用の補助関数は含めない。',
+        'Does a core application/domain operation itself choose a default for an unsettled input fact or execution option that should be settled before the business decision? Answer no if there is no defaulting in the function, for boundary normalization, or for a helper that merely converts or looks up data. Ordinary business rule branches on complete input are not normalization. Do not infer a default from the file path alone.',
     },
   ],
 };
